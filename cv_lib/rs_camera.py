@@ -24,9 +24,9 @@ class RS_camera():
 
 
     def start_RS(self):
-        # Create pipeline
+        # Create pipeline : Create a context object. This object owns the handles to all connected realsense devices
         pipeline = rs.pipeline()
-        # Create a config object
+        # Configure streams
         config = rs.config()
         # Configure the pipeline to stream the depth stream
         config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
@@ -58,6 +58,20 @@ class RS_camera():
         rgb_image = np.asanyarray(rgb_frame.get_data())
 
         self.rgb_image = rgb_image
-        self.colorized_depth = colorized_depth
+        self.colorized_depth = colorized_depth # TO DO : understand what colorized depth is and its advantages
         self.frames = frames
         self.h, self.w = rgb_image.shape[:2]
+    
+    def image_2_camera(points, depth): # TO DO : TEST
+        """Converts object 2D coordinates to 3D camera space coordinates
+        INTRINSIC PARAMETERS
+        Args: points (tuple)
+              depth  (single value)
+              """
+        profile = self.pipeline.get_active_profile()
+        depth_profile = rs.video_stream_profile(profile.get_stream(rs.stream.depth))
+        depth_intrinsics = depth_profile.get_intrinsics()
+        
+        pos = rs.rs2_deproject_pixel_to_point(depth_intrinsics, points, depth)
+        
+        return pos

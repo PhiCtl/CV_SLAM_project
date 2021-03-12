@@ -1,0 +1,6 @@
+
+cv_lib/.ipynb_checkpoints/Orange Rectangle detection and pose estimation-checkpoint.ipynb
+cv_lib/__pycache__/Hello_World.cpython-36.pyc
+cv_lib/__pycache__/Object_Detection.cpython-36.pyc
+*.pyc
+cv_lib/test.py

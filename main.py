@@ -24,6 +24,7 @@ def run():
     #detector.k_means(save = True)
     detector.get_mask()
     detector.find_centroids(threshold = 100)
+    detector.get_pos(camera)
     detector.get_plane_orientation(camera, plot = True)
     
     

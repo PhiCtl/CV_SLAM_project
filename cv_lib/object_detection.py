@@ -1,8 +1,9 @@
 from skspatial.objects import Points, Plane
-from skspatial.plotting import plot_3d
+#from skspatial.plotting import plot_3d
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import pyrealsense2 as rs
 
 class Object_Detection(): 
@@ -16,9 +17,9 @@ class Object_Detection():
         self.kmeans = None
         self.detected_obj = [] #list of (centroids) pixels positions of objects
         self.planes = [] #list of corresponding 3D planes
-        self.coo = [] #objects (world) camera coordinates
+        self.coo = [] #objects (world) camera coordinates #TODO: is coo synchronized with planes ?
         
-    def reset: #TODO: implement & send info to ROS node
+    def reset(self): #TODO: implement & send info to ROS node
         self.mask, self.frame, self.kmeans = None, None, None
         self.masks, self.detected_obj, self.planes, self.coo = [], [], [], []
         
@@ -82,7 +83,7 @@ class Object_Detection():
         upp_orange = np.array([16.8/2 +sens,255,255], dtype = np.float32)
             
         # Opening to get rid of the small background artifacts -> #TODO : tune size of opening element
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2,2))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
         
         # From bgr to hsv colorspace
         hsv = cv2.cvtColor(output, cv2.COLOR_BGR2HSV)
@@ -165,9 +166,11 @@ class Object_Detection():
             print("Coordinates : {}".format(pos))
             self.coo.append(pos)
         
-    def get_plane_orientation(self, camera, plot = False ): #TODO : Correct get plane orientation and print arrow
+    def get_plane_orientation(self, camera, plot = False ): 
+        #TODO : Make plot look nicer
+        #TODO Correct get plane orientation (objects are too thick)
         """
-        Computes normal vector of object plane
+        Computes normal vector of object plane and plot
         Args: RS_camera object
         """
         
@@ -175,6 +178,12 @@ class Object_Detection():
         
         # Retrieve depth from camera
         depth_frame = camera.frames.get_depth_frame()
+        
+        # Set plot
+        if plot:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            
         
         # For each region, compute plane
         for mask in self.masks:
@@ -187,11 +196,33 @@ class Object_Detection():
                 points.append(camera.image_2_camera([p[0],p[1]], z) )
             
             # Feed into Points, best fit etc... 
-            pts = Points(np.array(points)) #must be built with a nd.array
+            points = np.array(points)
+            pts = Points(points) #must be built with a nd.array
             plane = Plane.best_fit(pts)
-            if plot:
-                print("Normal to plane : {}".format(np.array(plane.normal)))
-        
             # Append computed plane
             self.planes.append(np.array(plane.normal))
+            
+            # Plot
+            if plot:
+                print("Normal to plane : {}".format(np.array(plane.normal)))
+                # Plot normal and vector of plane 
+                #TODO: correct error 
+                #TODO: why are x and y coo inverted ?!
+                [X,Y,Z] = self.coo[len(self.planes)-1]
+                [U,V,W] = self.planes[-1]
+                [x,y,z] = [points[:,0],points[:,1],points[:,2]] #TODO: ugly code cleaning
+                ax.quiver(X, Y, Z, U, V, W)
+                ax.scatter(x, y, z, c='r', marker='^')
+                
+                
+        if plot:
+            ax.set_xlim([-1, 1])
+            ax.set_ylim([-1, 1])
+            ax.set_zlim([-2, 2])
+            ax.set_xlabel('x in m')
+            ax.set_ylabel('y in m')
+            ax.set_zlabel('z in m')
+            plt.show()
+            
+        
         

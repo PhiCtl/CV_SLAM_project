@@ -32,9 +32,9 @@ class Object_Detection():
         
         output = self.frame.copy()
         # Resize
-        new_height = int(output.shape[0]*scale)
-        new_width  = int(output.shape[1]*scale)
-        output = cv2.resize(output, (new_width, new_height),interpolation = cv2.INTER_AREA)
+        #new_height = int(output.shape[0]*scale)
+        #new_width  = int(output.shape[1]*scale)
+        #output = cv2.resize(output, (new_width, new_height),interpolation = cv2.INTER_AREA)
         
         # Kmeans #TODO understand better kmeans
         clust = output.reshape((-1,3))
@@ -74,9 +74,9 @@ class Object_Detection():
         output = cv2.medianBlur(output,5)
     
         # Resize
-        new_height = int(output.shape[0]*scale)
-        new_width  = int(output.shape[1]*scale)
-        output = cv2.resize(output, (new_width, new_height),interpolation = cv2.INTER_AREA)
+        #new_height = int(output.shape[0]*scale)
+        #new_width  = int(output.shape[1]*scale)
+        #output = cv2.resize(output, (new_width, new_height),interpolation = cv2.INTER_AREA)
         
         # Define HBR orange color range for thresholding TUNED :)
         low_orange = np.array([16.8/2-sens,0.5*255,0.5*255], dtype = np.float32) 
@@ -105,13 +105,13 @@ class Object_Detection():
             cv2.destroyAllWindows()
     
     
-    def find_centroids(self, threshold = 1000, verbose = False): #OK
+    def find_centroids(self, threshold = 2000, verbose = False): #OK
         """Stores centroids in image (pixels) coordinates and returns if found any
             Args: threshold for max area detection
         """
         
         output = self.frame.copy()
-        mask_obj = np.zeros(output.shape[0:2]) # 2D mask 1 channel only
+       
         
         # Pick the main objects and find its moments
         #find moments based on contours
@@ -126,8 +126,11 @@ class Object_Detection():
             self.detected_obj.append([cx,cy])
             
             # Extract contours
+            mask_obj = np.zeros((output.shape[0], output.shape[1])) # 2D mask 1 channel only
             self.masks.append(cv2.fillConvexPoly(mask_obj, el, color = (255,255,255) ))
-    
+            #cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
+            #self.masks.append(mask_obj)
+            
             # Plots
             if verbose:
                 # Centroid pixels coordinates
@@ -137,9 +140,6 @@ class Object_Detection():
                 cv2.imshow('object mask',self.masks[-1])
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
-            
-            # Reset mask object
-            mask_obj = np.zeros(output.shape) 
             
         # Draw contours
         if verbose:
@@ -151,7 +151,7 @@ class Object_Detection():
         
         return not self.detected_obj #check if objects centroid were found
     
-    def get_pos(self, camera): #OK #TODO: get centroid positions or get points position ?
+    def get_pos(self, camera): #OK
     
         """Computes positions of each object in camera 3D coordinates frame
            Args: camera from which we retrieve the depth and the intrinsics"""
@@ -170,7 +170,7 @@ class Object_Detection():
         #TODO : Make plot look nicer
         #TODO Correct get plane orientation (objects are too thick)
         """
-        Computes normal vector of object plane and plot
+        Computes normal of object plane and plot
         Args: RS_camera object
         """
         
@@ -192,27 +192,30 @@ class Object_Detection():
             obj_pix = np.argwhere(mask > thresh)
             points = []
             for p in obj_pix: #TODO: avoid loop here !
-                z = depth_frame.get_distance(p[0],p[1])
-                points.append(camera.image_2_camera([p[0],p[1]], z) )
+            # W have to invert coordinates here (look at image shape conventions [h=y, w=x, channels])
+            # Handled by open cv though but when accessing an array we need to do it
+                
+                z = depth_frame.get_distance(p[1],p[0])
+                points.append(camera.image_2_camera([p[1],p[0]], z) )
             
             # Feed into Points, best fit etc... 
             points = np.array(points)
+            print(points.shape)
             pts = Points(points) #must be built with a nd.array
             plane = Plane.best_fit(pts)
             # Append computed plane
-            self.planes.append(np.array(plane.normal))
+            self.planes.append(np.array(plane.vector))
             
             # Plot
             if plot:
-                print("Normal to plane : {}".format(np.array(plane.normal)))
-                # Plot normal and vector of plane 
-                #TODO: correct error 
-                #TODO: why are x and y coo inverted ?!
+                print("Plane vector : {}".format(np.array(plane.vector)))
+                # Plot plane 
+                #TODO: (x,z) plane...
                 [X,Y,Z] = self.coo[len(self.planes)-1]
-                [U,V,W] = self.planes[-1]
-                [x,y,z] = [points[:,0],points[:,1],points[:,2]] #TODO: ugly code cleaning
+                [U,V,W] = np.array(plane.vector) #self.planes[-1]
+                #[x,y,z] = [points[:,0],points[:,1],points[:,2]] 
                 ax.quiver(X, Y, Z, U, V, W)
-                ax.scatter(x, y, z, c='r', marker='^')
+                #ax.scatter(x, y, z, c='r', marker='o')
                 
                 
         if plot:

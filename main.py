@@ -7,8 +7,8 @@ Created on Thu Mar 11 16:50:29 2021
 import os
 import numpy as np
 import cv2
-from cv_lib.RS_Camera import RS_Camera
-from cv_lib.Object_Detection import Object_Detection
+from cv_lib.rs_camera import RS_Camera
+from cv_lib.object_detection import Object_Detection
 
 currentPath = os.path.dirname(os.path.realpath(__file__))
 

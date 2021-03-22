@@ -1,0 +1,8 @@
+prefix=/home/phil/Documents/Projects/CV_SLAM_project/ros_ws/devel
+
+Name: cv_ros
+Description: Description of cv_ros
+Version: 0.0.0
+Cflags: -I/home/phil/Documents/Projects/CV_SLAM_project/ros_ws/devel/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime message_generation roscpp rospy std_msgs

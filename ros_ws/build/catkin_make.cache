@@ -1,0 +1,2 @@
+cv_ros
+-DCATKIN_DEVEL_PREFIX=/home/phil/Documents/Projects/CV_SLAM_project/ros_ws/devel -DCMAKE_INSTALL_PREFIX=/home/phil/Documents/Projects/CV_SLAM_project/ros_ws/install -G Unix Makefiles

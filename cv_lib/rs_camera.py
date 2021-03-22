@@ -76,5 +76,10 @@ class RS_Camera():
         pos = rs.rs2_deproject_pixel_to_point(depth_intrinsics, points, depth)
         
         return pos
+
+    def get_distance(self, cx, cy):
+        depth_frame = self.frames.get_depth_frame()
+        return depth_frame.get_distance(cx, cy)
+
     
     #def camera_2_world(self, points): #TODO: Implement

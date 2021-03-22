@@ -157,10 +157,9 @@ class Object_Detection():
            Args: camera from which we retrieve the depth and the intrinsics"""
         
         # Retrieve depth from camera
-        depth_frame = camera.frames.get_depth_frame()
         # Compute depth of each centroid
         for [cx,cy] in self.detected_obj:
-            cz = depth_frame.get_distance(cx,cy)
+            cz = camera.get_distance(cx,cy)
             # Store each object in camera coordinates
             pos = camera.image_2_camera([cx,cy], cz)
             print("Coordinates : {}".format(pos))
@@ -175,9 +174,6 @@ class Object_Detection():
         """
         
         thresh = 1e-6 #TODO: is it useful ?
-        
-        # Retrieve depth from camera
-        depth_frame = camera.frames.get_depth_frame()
         
         # Set plot
         if plot:
@@ -195,7 +191,7 @@ class Object_Detection():
             # W have to invert coordinates here (look at image shape conventions [h=y, w=x, channels])
             # Handled by open cv though but when accessing an array we need to do it
                 
-                z = depth_frame.get_distance(p[1],p[0])
+                z = camera.get_distance(p[1],p[0])
                 points.append(camera.image_2_camera([p[1],p[0]], z) )
             
             # Feed into Points, best fit etc... 

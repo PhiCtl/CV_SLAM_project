@@ -1,0 +1,6 @@
+<launch>
+
+    # start empty klt service
+    <node name="Vision" pkg="cv_ros" type="main_ros.py" output="screen"/>
+
+</launch>

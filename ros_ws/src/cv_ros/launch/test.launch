@@ -1,0 +1,7 @@
+<launch>
+
+    # start empty klt service
+    <node name="talker" pkg="cv_ros" type="talker_test.py" output="screen"/>
+    <node name="listener" pkg="cv_ros" type="listener_test.py" output="screen"/>
+
+</launch>

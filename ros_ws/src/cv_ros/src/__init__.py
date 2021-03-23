@@ -24,6 +24,8 @@ workingPath = str(Path(currentPath).parents[3])
 
 # Add lib to PYTHONPATH
 cvPath = os.path.join(workingPath, 'cv_lib')
+msgPath = os.path.join(workingPath, 'msg')
 
 add_path(workingPath)
 add_path(cvPath)
+add_path(msgPath)

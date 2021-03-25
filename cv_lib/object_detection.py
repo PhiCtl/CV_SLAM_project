@@ -68,7 +68,8 @@ class Object_Detection():
               number of iterations to erode the mask
               scaling of picture
               plot resulting mask"""
-        
+
+        print("Getting mask...")
         # Smoothen
         output = self.frame.copy()
         output = cv2.medianBlur(output,5)
@@ -95,7 +96,7 @@ class Object_Detection():
         # Store mask
         self.mask = mask
     
-        if plot:
+        if plot: #TODO correct segfault in plot mode
             # Bitwise and mask and original picture
             res = cv2.bitwise_and(output,output, mask= mask)
             cv2.imshow('result',res)
@@ -103,15 +104,16 @@ class Object_Detection():
             cv2.imshow('img', output)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+            print("Closing windows...")
+        print("Done")
     
     
     def find_centroids(self, threshold = 2000, verbose = False): #OK
         """Stores centroids in image (pixels) coordinates and returns if found any
             Args: threshold for max area detection
         """
-        
+        print("Finding centroids...")
         output = self.frame.copy()
-       
         
         # Pick the main objects and find its moments
         #find moments based on contours
@@ -127,17 +129,17 @@ class Object_Detection():
             
             # Extract contours
             mask_obj = np.zeros((output.shape[0], output.shape[1])) # 2D mask 1 channel only
-            self.masks.append(cv2.fillConvexPoly(mask_obj, el, color = (255,255,255) ))
-            #cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
-            #self.masks.append(mask_obj)
+            #self.masks.append(cv2.fillConvexPoly(mask_obj, el, color = (255,255,255) ))
+            cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
+            self.masks.append(mask_obj)
+            # Centroid pixels coordinates
+            print("x : {}, y : {}".format(cx, cy))
             
             # Plots
             if verbose:
-                # Centroid pixels coordinates
-                print("x : {}, y : {}".format(cx,cy))
                 # Print centroid and show object mask
                 cv2.circle(output, (int(cx),int(cy)), 2, 255, 1)
-                cv2.imshow('object mask',self.masks[-1])
+                cv2.imshow('object mask',mask_obj)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
             
@@ -148,8 +150,8 @@ class Object_Detection():
             cv2.imshow('centroid',output)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-        
-        return not self.detected_obj #check if objects centroid were found
+        print("Done")
+        #return not self.detected_obj #check if objects centroid were found
     
     def get_pos(self, camera): #OK
     
@@ -158,12 +160,14 @@ class Object_Detection():
         
         # Retrieve depth from camera
         # Compute depth of each centroid
+        print("Finding 3D coordinates...")
         for [cx,cy] in self.detected_obj:
             cz = camera.get_distance(cx,cy)
             # Store each object in camera coordinates
             pos = camera.image_2_camera([cx,cy], cz)
             print("Coordinates : {}".format(pos))
             self.coo.append(pos)
+        print("Done")
         
     def get_plane_orientation(self, camera, plot = False ): 
         #TODO : Make plot look nicer
@@ -196,7 +200,6 @@ class Object_Detection():
             
             # Feed into Points, best fit etc... 
             points = np.array(points)
-            print(points.shape)
             pts = Points(points) #must be built with a nd.array
             plane = Plane.best_fit(pts)
             # Append computed plane
@@ -215,6 +218,7 @@ class Object_Detection():
                 
                 
         if plot:
+            print("Plotting...")
             ax.set_xlim([-1, 1])
             ax.set_ylim([-1, 1])
             ax.set_zlim([-2, 2])
@@ -222,6 +226,7 @@ class Object_Detection():
             ax.set_ylabel('y in m')
             ax.set_zlabel('z in m')
             plt.show()
+        print("Done")
             
         
         

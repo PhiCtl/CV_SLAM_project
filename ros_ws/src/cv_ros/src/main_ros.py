@@ -28,16 +28,19 @@ def run():
     # start camera listener
     camera = CameraListener()
     camera.get_frames()
+    camera.get_info()
+
+    cv2.imwrite('bag_img.jpg', camera.bgr_image)
 
     # detect object
     detector = Object_Detection(camera.bgr_image)
-    detector.get_mask(plot = True)
-    #detector.find_centroids(threshold=100)
-    #detector.get_pos(camera)
-    #detector.get_plane_orientation(camera, plot=True)
+    detector.get_mask(it = 2) # OK
+    detector.find_centroids(threshold=1000)
+    detector.get_pos(camera)
+    detector.get_plane_orientation(camera, plot = True)
 
-    #for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
-     #   publish(centroid_coo, plane_vector_coo)
+    for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
+        publish(centroid_coo, plane_vector_coo)
 
 
 def test_listener():
@@ -52,6 +55,6 @@ def test_talker():
     publish()
 
 if __name__ == '__main__':
-    #run()
-    init_node()
-    test_listener()
+    run()
+    #init_node()
+    #test_listener()

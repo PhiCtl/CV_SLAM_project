@@ -3,7 +3,7 @@
 import __init__
 from cv_lib.object_detection import Object_Detection
 from cv_lib.camera_listener import CameraListener
-from cv_ros.msg import ObjectPos
+from geometry_msgs.msg import PoseStamped
 import cv2
 import rospy
 import numpy as np
@@ -11,13 +11,14 @@ import numpy as np
 def init_node():
     global msg, pub, rate
     rospy.init_node("Vision")
-    pub = rospy.Publisher('/Vision', ObjectPos, queue_size=10)
+    pub = rospy.Publisher('/Vision', PoseStamped, queue_size=10)
     rate = rospy.Rate(10)
-    msg = ObjectPos()
+    msg = PoseStamped()
 
 def publish(centroid_coo, plane_vector_coo):
-    msg.centroid = centroid_coo
-    msg.plane_vector = plane_vector_coo
+    msg.header.frame_id, msg.header.stamp = "camera", rospy.Time.now()
+    [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z] = centroid_coo
+    [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z] = plane_vector_coo
     rospy.loginfo(msg)
     pub.publish(msg)
     rate.sleep()

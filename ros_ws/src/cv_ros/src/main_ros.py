@@ -26,22 +26,23 @@ def publish(centroid_coo, plane_vector_coo):
 def run():
     init_node()
 
-    # start camera listener
+    # start camera listener and detector
     camera = CameraListener()
-    camera.get_frames()
-    camera.get_info()
+    detector = Object_Detection()
 
-    cv2.imwrite('bag_img.jpg', camera.bgr_image)
+    while not rospy.is_shutdown():
+        camera.get_frames()
+        camera.get_info()
 
-    # detect object
-    detector = Object_Detection(camera.bgr_image)
-    detector.get_mask(it = 2) # OK
-    detector.find_centroids(threshold=1000)
-    detector.get_pos(camera)
-    detector.get_plane_orientation(camera, plot = True)
+        # detect object
+        detector.set_picture(camera.bgr_image)
+        detector.get_mask(it = 2) # OK
+        detector.find_centroids(threshold=1000)
+        detector.get_pos(camera)
+        detector.get_plane_orientation(camera, plot = False)
 
-    for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
-        publish(centroid_coo, plane_vector_coo)
+        for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
+            publish(centroid_coo, plane_vector_coo)
 
 
 def test_listener():
@@ -57,5 +58,3 @@ def test_talker():
 
 if __name__ == '__main__':
     run()
-    #init_node()
-    #test_listener()

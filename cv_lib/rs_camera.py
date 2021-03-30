@@ -18,6 +18,7 @@ class RS_Camera():
 
         self.frames = None
         self.bgr_image = None
+        self.depth_frame = None
         self.colorized_depth = None
         self.h = 0
         self.w = 0
@@ -46,7 +47,7 @@ class RS_Camera():
         align = rs.align(rs.stream.color)
         frames = align.process(frames)
         # Update color and depth frames:
-        depth_frame = frames.get_depth_frame()
+        self.depth_frame = frames.get_depth_frame()
         colorized_depth = np.asanyarray(self.colorizer.colorize(depth_frame).get_data())
         # Get depth frame
         bgr_frame = frames.get_color_frame()

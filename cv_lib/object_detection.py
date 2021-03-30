@@ -193,17 +193,14 @@ class Object_Detection():
         for mask in self.masks:
     
             # Compute 3D coordinates of all pixels within the object
-            obj_pix = np.argwhere(mask > thresh)
-            points = []
-            for p in obj_pix: #TODO: avoid loop here !
-            # W have to invert coordinates here (look at image shape conventions [h=y, w=x, channels])
-            # Handled by open cv though but when accessing an array we need to do it
-                
-                z = camera.get_distance(p[1],p[0])
-                points.append(camera.image_2_camera([p[1],p[0]], z) )
-            
-            # Feed into Points, best fit etc... 
-            points = np.array(points)
+            obj_pix = np.argwhere(mask > thresh) # y,x
+            points = np.empty((obj_pix.shape[0],3))
+            points[:,0] = obj_pix[:,1]
+            points[:,1] = obj_pix[:,0]
+            print(camera.depth_frame.shape, obj_pix.shape, camera.bgr_image.shape)
+            points[:,2] = camera.depth_frame[obj_pix[:,0], obj_pix[:,1]]
+
+            # Feed into Points, best fit etc...
             pts = Points(points) #must be built with a nd.array
             plane = Plane.best_fit(pts)
             # Append computed plane

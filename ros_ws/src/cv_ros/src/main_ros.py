@@ -12,7 +12,7 @@ def init_node():
     global msg, pub, rate
     rospy.init_node("Vision")
     pub = rospy.Publisher('/Vision', PoseStamped, queue_size=10)
-    rate = rospy.Rate(1)
+    rate = rospy.Rate(10)
     msg = PoseStamped()
 
 def publish(centroid_coo, plane_vector_coo):
@@ -43,7 +43,7 @@ def run():
 
         for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
             publish(centroid_coo, plane_vector_coo)
-
+        detector.reset()
 
 def test_listener():
     camera = CameraListener()

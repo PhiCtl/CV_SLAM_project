@@ -16,12 +16,16 @@ def init_node():
     msg = PoseStamped()
 
 def publish(centroid_coo, plane_vector_coo):
-    msg.header.frame_id, msg.header.stamp = "camera_color_frame", rospy.Time.now()
-    [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z] = centroid_coo
+    msg.header.frame_id, msg.header.stamp = "camera", rospy.Time.now()
+    # [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z] = centroid_coo
+    msg.pose.position.x = centroid_coo[0]/1000
+    msg.pose.position.y = centroid_coo[1]/1000
+    msg.pose.position.z = centroid_coo[2]/1000
+
     [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z] = plane_vector_coo
-    rospy.loginfo(msg)
+    # rospy.loginfo(msg)
     pub.publish(msg)
-    rate.sleep()
+    # rate.sleep()
 
 def run():
     init_node()
@@ -31,6 +35,7 @@ def run():
     detector = Object_Detection()
 
     while not rospy.is_shutdown():
+        rospy.loginfo("Begin main loop")
         camera.get_frames()
         camera.get_info()
 
@@ -41,9 +46,13 @@ def run():
         detector.get_pos(camera)
         detector.get_plane_orientation(camera, plot = False)
 
+        rospy.loginfo("Finish computation, will publish")
+        nb_msgs=0
         for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
             publish(centroid_coo, plane_vector_coo)
-        detector.reset()
+            nb_msgs += 1
+        rospy.loginfo("Published {} messages, will sleep".format(nb_msgs))
+        rate.sleep()
 
 def test_listener():
     camera = CameraListener()

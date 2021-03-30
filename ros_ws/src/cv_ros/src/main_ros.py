@@ -16,7 +16,7 @@ def init_node():
     msg = PoseStamped()
 
 def publish(centroid_coo, plane_vector_coo):
-    msg.header.frame_id, msg.header.stamp = "camera", rospy.Time.now()
+    msg.header.frame_id, msg.header.stamp = "camera_color_frame", rospy.Time.now()
     [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z] = centroid_coo
     [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z] = plane_vector_coo
     rospy.loginfo(msg)

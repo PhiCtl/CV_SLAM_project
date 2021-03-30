@@ -41,7 +41,7 @@ class CameraListener: # TODO test
             print(e)
 
     def get_info(self):
-        print("Getting camera intrinsics")
+        #print("Getting camera intrinsics")
         cameraInfo = rospy.wait_for_message(topic_camera_info, CameraInfo)
         try:
             if not self.intrinsics:
@@ -59,8 +59,8 @@ class CameraListener: # TODO test
                 self.intrinsics.coeffs = [i for i in cameraInfo.D]
         except CvBridgeError as e:
             print(e)
-        if self.intrinsics:
-            print("Done")
+        #if self.intrinsics:
+            #print("Done")
 
 
     def get_distance(self, cx, cy):  # TODO beware of '0' situation

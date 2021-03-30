@@ -8,12 +8,12 @@ import pyrealsense2 as rs
 
 class Object_Detection(): 
     
-    def __init__(self, img): #TODO: Members to refine
+    def __init__(self): #TODO: Members to refine
         """Args: input image (BGR) from which we perform object detection"""
         
         self.mask = None #mask from which we count objects and compute their positions
         self.masks = [] #list of object wise masks
-        self.frame = img
+        self.frame = None
         self.kmeans = None
         self.detected_obj = [] #list of (centroids) pixels positions of objects
         self.planes = [] #list of corresponding 3D planes
@@ -22,6 +22,9 @@ class Object_Detection():
     def reset(self): #TODO: implement & send info to ROS node
         self.mask, self.frame, self.kmeans = None, None, None
         self.masks, self.detected_obj, self.planes, self.coo = [], [], [], []
+
+    def set_picture(self, img):
+        self.frame = img
         
     def k_means(self, scale = 1, nb_clust = 8, save = False): # OK
         
@@ -69,7 +72,7 @@ class Object_Detection():
               scaling of picture
               plot resulting mask"""
 
-        print("Getting mask...")
+        if plot : print("Getting mask...")
         # Smoothen
         output = self.frame.copy()
         output = cv2.medianBlur(output,5)
@@ -105,14 +108,14 @@ class Object_Detection():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             print("Closing windows...")
-        print("Done")
+        if plot: print("Done")
     
     
     def find_centroids(self, threshold = 2000, verbose = False): #OK
         """Stores centroids in image (pixels) coordinates and returns if found any
             Args: threshold for max area detection
         """
-        print("Finding centroids...")
+        if verbose: print("Finding centroids...")
         output = self.frame.copy()
         
         # Pick the main objects and find its moments
@@ -133,7 +136,7 @@ class Object_Detection():
             cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
             self.masks.append(mask_obj)
             # Centroid pixels coordinates
-            print("x : {}, y : {}".format(cx, cy))
+            if verbose: print("x : {}, y : {}".format(cx, cy))
             
             # Plots
             if verbose:
@@ -150,24 +153,24 @@ class Object_Detection():
             cv2.imshow('centroid',output)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-        print("Done")
+        if verbose : print("Done")
         #return not self.detected_obj #check if objects centroid were found
     
-    def get_pos(self, camera): #OK
+    def get_pos(self, camera, verbose = False): #OK
     
         """Computes positions of each object in camera 3D coordinates frame
            Args: camera from which we retrieve the depth and the intrinsics"""
         
         # Retrieve depth from camera
         # Compute depth of each centroid
-        print("Finding 3D coordinates...")
+        if verbose: print("Finding 3D coordinates...")
         for [cx,cy] in self.detected_obj:
             cz = camera.get_distance(cx,cy)
             # Store each object in camera coordinates
             pos = camera.image_2_camera([cx,cy], cz)
             print("Coordinates : {}".format(pos))
             self.coo.append(pos)
-        print("Done")
+        if verbose: print("Done")
         
     def get_plane_orientation(self, camera, plot = False ): 
         #TODO : Make plot look nicer
@@ -226,7 +229,7 @@ class Object_Detection():
             ax.set_ylabel('y in m')
             ax.set_zlabel('z in m')
             plt.show()
-        print("Done")
+            print("Done")
             
         
         

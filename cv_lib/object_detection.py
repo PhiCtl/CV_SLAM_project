@@ -132,9 +132,9 @@ class Object_Detection():
             
             # Extract contours
             mask_obj = np.zeros((output.shape[0], output.shape[1])) # 2D mask 1 channel only
-            #self.masks.append(cv2.fillConvexPoly(mask_obj, el, color = (255,255,255) ))
-            cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
-            self.masks.append(mask_obj)
+            self.masks.append(cv2.fillConvexPoly(mask_obj, el, color = (255,255,255) ))
+            #cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
+            #self.masks.append(mask_obj)
             # Centroid pixels coordinates
             if verbose: print("x : {}, y : {}".format(cx, cy))
             
@@ -168,8 +168,9 @@ class Object_Detection():
             cz = camera.get_distance(cx,cy)
             # Store each object in camera coordinates
             pos = camera.image_2_camera([cx,cy], cz)
-            print("Coordinates : {}".format(pos))
-            self.coo.append(pos)
+            [x,y,z] = pos
+            #print("Coordinates : {}".format(pos))
+            self.coo.append([x/1000, y/1000, z/1000])
         if verbose: print("Done")
         
     def get_plane_orientation(self, camera, plot = False ): 

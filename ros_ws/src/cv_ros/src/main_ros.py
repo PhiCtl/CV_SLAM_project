@@ -12,7 +12,7 @@ def init_node():
     global msg, pub, rate
     rospy.init_node("Vision")
     pub = rospy.Publisher('/Vision', PoseStamped, queue_size=10)
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(1)
     msg = PoseStamped()
 
 def publish(centroid_coo, plane_vector_coo):

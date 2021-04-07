@@ -154,7 +154,7 @@ class Object_Detection():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
         if verbose : print("Done")
-        #return not self.detected_obj #check if objects centroid were found
+        return not self.detected_obj #check if objects centroid were found
     
     def get_pos(self, camera, verbose = False): #OK
     

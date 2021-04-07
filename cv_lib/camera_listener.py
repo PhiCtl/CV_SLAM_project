@@ -24,7 +24,7 @@ class CameraListener: # TODO test
         self.bgr_image = None
         self.depth_frame = None
         self.bridge = CvBridge()
-
+        self.error_mode = False
         # camera intrinsics
         self.intrinsics = None
 
@@ -36,12 +36,15 @@ class CameraListener: # TODO test
             self.bgr_image = self.bridge.imgmsg_to_cv2(img, desired_encoding="bgr8")  # BGR format
             self.depth_frame = self.bridge.imgmsg_to_cv2(img_depth, img_depth.encoding)
         except CvBridgeError as e:
+            self.error_mode = True
             print(e)
         except ValueError as e:
+            self.error_mode = True
             print(e)
 
     def get_info(self):
         #print("Getting camera intrinsics")
+        self.error_mode = False
         cameraInfo = rospy.wait_for_message(topic_camera_info, CameraInfo)
         try:
             if not self.intrinsics:
@@ -57,10 +60,10 @@ class CameraListener: # TODO test
                 if cameraInfo.distortion_model == 'equidistant':
                     self.intrinsics.model = rs2.distortion.kannala_brandt4
                 self.intrinsics.coeffs = [i for i in cameraInfo.D]
+
         except CvBridgeError as e:
+            self.error_mode = True
             print(e)
-        #if self.intrinsics:
-            #print("Done")
 
 
     def get_distance(self, cx, cy):  # TODO beware of '0' situation

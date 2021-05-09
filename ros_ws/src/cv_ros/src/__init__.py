@@ -23,9 +23,7 @@ currentPath = os.path.dirname(os.path.realpath(__file__))
 workingPath = str(Path(currentPath).parents[3])
 
 # Add lib to PYTHONPATH
-cvPath = os.path.join(workingPath, 'cv_lib')
-msgPath = os.path.join(workingPath, 'msg')
+cvPath = os.path.join(workingPath, 'cv_lib/src')
 
 add_path(workingPath)
 add_path(cvPath)
-add_path(msgPath)

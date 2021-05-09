@@ -1,75 +1,129 @@
 # !/usr/bin/env python
 
 import __init__
-from cv_lib.object_detection import Object_Detection
-from cv_lib.camera_listener import CameraListener
+from cv_lib.src.object_detection import ObjectDetector
+from cv_lib.src.camera_listener import CameraListener
+from cv_lib.src.object_prediction import ObjectPredictor
+from cv_ros.msg import ObjectPose
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
-import rospy
-
+import tf2_ros, rospy, quaternion, torch
 
 # topics list
 topic_rs_status = '/RS_status'
 topic_cv_status = '/CV_status'
-topic_cv_datas = '/CV_datas'
+topic_cv_data = '/CV_data'
 
-def init_node():
-    global msg, cv_status, pub, pub_state, rate
-    rospy.loginfo("init_node")
-    rospy.init_node("Vision")
-    pub = rospy.Publisher(topic_cv_datas, PoseStamped, queue_size=10)
-    pub_state = rospy.Publisher(topic_cv_status, String, queue_size = 10)
-    rate = rospy.Rate(10)
-    msg = PoseStamped()
-    cv_status = String()
+class PosePublisher():
 
-def publish(centroid_coo, plane_vector_coo):
-    msg.header.frame_id, msg.header.stamp = "camera", rospy.Time.now()
-    # Convert from mm to m
-    msg.pose.position.x = centroid_coo[0]/1000
-    msg.pose.position.y = centroid_coo[1]/1000
-    msg.pose.position.z = centroid_coo[2]/1000
+    def __init__(self):
+        rospy.init_node("Vision")
+        self.pub = rospy.Publisher(topic_cv_data, ObjectPose, queue_size=10)
+        self.pub_state = rospy.Publisher(topic_cv_status, String, queue_size=10)
+        self.msg = ObjectPose()
+        self.cv_status = String()
+        self.buffer = tf2_ros.Buffer()
+        self.rate = rospy.Rate(10)
 
-    [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z] = plane_vector_coo
+    def publish_pose(self, centroid_coo, plane_vector_coo, seq_id, object_type):
+        self.msg.header.frame_id, self.msg.header.stamp, self.msg.header.seq, self.msg.object_type = "world", rospy.Time.now(), seq_id, object_type
 
-    pub.publish(msg)
+        for centroid, plane, i in zip(centroid_coo, plane_vector_coo, range(len(centroid_coo))):
+            p = PoseStamped()
+            p.header.frame_id, p.header.seq = 'camera', i
+            p.pose.position.x = centroid[0]
+            p.pose.position.y = centroid[1]
+            p.pose.position.z = centroid[2]
+
+            [p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z] = plane
+            #p = self.transform_cam_to_world_coo_cb(self, p)
+            self.msg.poses.append(p)
+
+        self.pub.publish(self.msg)
+        seq_id += 1
+        self.msg.poses.clear()
+
+    def publish_status(self):
+        self.pub_state.publish(self.cv_status)
+
+    def set_status(self, str='IDLE'):
+        self.cv_status.data = str
+
+    def transform_cam_to_world_coo_cb(self, data):
+        trans = self.buffer.lookup_transform("world", "camera", rospy.Time(0))  # data.header.stamp)
+        data.header.frame_id = "world"
+        rot = quaternion.quaternion()
+        rot.x = trans.transform.rotation.x
+        rot.y = trans.transform.rotation.y
+        rot.z = trans.transform.rotation.z
+        rot.w = trans.transform.rotation.w
+
+        pos = quaternion.from_float_array([0, data.pose.position.x, data.pose.position.y, data.pose.position.z])
+        pos = rot * pos * rot.inverse()
+        [data.pose.position.x, data.pose.position.y, data.pose.position.z] = quaternion.as_vector_part(pos)
+
+        normal_vec = quaternion.from_float_array(
+            [0, data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z])
+        normal_vec = rot * normal_vec * rot.inverse()
+        [data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z] = quaternion.as_vector_part(
+            normal_vec)
+
+        data.pose.position.x += trans.transform.translation.x
+        data.pose.position.y += trans.transform.translation.y
+        data.pose.position.z += trans.transform.translation.z
+
+        return data
 
 
 def run():
-    init_node()
+    publisher = PosePublisher()
+
+    # device
+    cuda_available = torch.cuda.is_available()
+    device = torch.device("cuda:0" if cuda_available else "cpu")
 
     # start camera listener and detector
     camera = CameraListener()
-    detector = Object_Detection()
-    cv_status.data = 'IDLE'
+    detector = ObjectDetector()
+    predictor = ObjectPredictor(device)
+    publisher.set_status()
+
+    # counter
+    i = 0
+
     while not rospy.is_shutdown():
 
         # Wait for Robotic station status
-        rs_status = rospy.wait_for_message(topic_rs_status, String) # will be always active, otherwise code stops here
+        rs_status = rospy.wait_for_message(topic_rs_status, String)  # will be always active, otherwise code stops here
         if rs_status.data == 'STANDSTILL':
 
             # Take picture
             camera.get_frames()
             camera.get_info()
-            # detect object
+
+            # detect plant_holder
             detector.set_picture(camera.bgr_image)
-            detector.get_mask(it = 2) # OK
-            if detector.find_centroids(threshold=10000):
-                # Find positions and orientations
-                detector.get_pos(camera)
-                detector.get_plane_orientation(camera, plot = False)
+            detector.get_mask(it=2)
+            found_plantHolders = detector.find_centroids(threshold=1000, verbose=False)
+            # Find positions and orientations
+            detector.get_pos(camera, verbose=False)
+            detector.get_plane_orientation(camera, plot=False)
 
-                # status
-                cv_status.data = 'SUCCESS'
+            # detect flowers
+            poses, found_flowers = predictor(camera.bgr, camera)
 
-                # publish
-                for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
-                    publish(centroid_coo, plane_vector_coo)
+            if found_plantHolders:
+                publisher.set_status('SUCCESS')
+                publisher.publish_pose(detector.coo, detector.planes, i, 'plant_holders')
                 detector.reset()
+            if found_flowers:
+                publisher.set_status('SUCCESS')
+                publisher.publish_pose(poses['centroid_coo'], poses['orientations'], i, 'flowers')
+
             else:
-                cv_status.data = 'RETRY'
-        pub_state.publish(cv_status)
-        rate.sleep()
+                publisher.set_status('RETRY')
+        publisher.publish_status()
+        publisher.rate.sleep()
 
 if __name__ == '__main__':
     run()

@@ -4,10 +4,11 @@ import __init__
 from cv_lib.src.object_detection import ObjectDetector
 from cv_lib.src.camera_listener import CameraListener
 from cv_lib.src.object_prediction import ObjectPredictor
+from cv_lib.src.myUtils import draw_bboxes
 from cv_ros.msg import ObjectPose
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
-import tf2_ros, rospy, quaternion, torch
+import tf2_ros, rospy, torch, cv2
 
 # topics list
 topic_rs_status = '/RS_status'
@@ -26,7 +27,7 @@ class PosePublisher():
         self.rate = rospy.Rate(10)
 
     def publish_pose(self, centroid_coo, plane_vector_coo, seq_id, object_type):
-        self.msg.header.frame_id, self.msg.header.stamp, self.msg.header.seq, self.msg.object_type = "world", rospy.Time.now(), seq_id, object_type
+        self.msg.header.frame_id, self.msg.header.stamp, self.msg.header.seq, self.msg.object_type = "camera", rospy.Time.now(), seq_id, String(object_type)
 
         for centroid, plane, i in zip(centroid_coo, plane_vector_coo, range(len(centroid_coo))):
             p = PoseStamped()
@@ -34,6 +35,7 @@ class PosePublisher():
             p.pose.position.x = centroid[0]
             p.pose.position.y = centroid[1]
             p.pose.position.z = centroid[2]
+            print("coordinates : {}".format(centroid))
 
             [p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z] = plane
             #p = self.transform_cam_to_world_coo_cb(self, p)
@@ -49,7 +51,7 @@ class PosePublisher():
     def set_status(self, str='IDLE'):
         self.cv_status.data = str
 
-    def transform_cam_to_world_coo_cb(self, data):
+    """def transform_cam_to_world_coo_cb(self, data):
         trans = self.buffer.lookup_transform("world", "camera", rospy.Time(0))  # data.header.stamp)
         data.header.frame_id = "world"
         rot = quaternion.quaternion()
@@ -72,7 +74,7 @@ class PosePublisher():
         data.pose.position.y += trans.transform.translation.y
         data.pose.position.z += trans.transform.translation.z
 
-        return data
+        return data"""
 
 
 def run():
@@ -85,7 +87,7 @@ def run():
     # start camera listener and detector
     camera = CameraListener()
     detector = ObjectDetector()
-    predictor = ObjectPredictor(device)
+    predictor = ObjectPredictor(device, model_name='Resnet50_FPN')
     publisher.set_status()
 
     # counter
@@ -110,7 +112,10 @@ def run():
             detector.get_plane_orientation(camera, plot=False)
 
             # detect flowers
-            poses, found_flowers = predictor(camera.bgr, camera)
+            cv2.imshow("test", camera.bgr_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+            poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.8, verbose=True)
 
             if found_plantHolders:
                 publisher.set_status('SUCCESS')
@@ -118,7 +123,7 @@ def run():
                 detector.reset()
             if found_flowers:
                 publisher.set_status('SUCCESS')
-                publisher.publish_pose(poses['centroid_coo'], poses['orientations'], i, 'flowers')
+                publisher.publish_pose(poses['centroids_coo'][:,:3], poses['centroids_coo'][:,:3], i, 'flowers')
 
             else:
                 publisher.set_status('RETRY')

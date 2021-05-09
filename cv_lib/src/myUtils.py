@@ -14,7 +14,7 @@ import torch.functional as F
 
 MEAN_Imagenet = [0.485, 0.456, 0.406]
 STD_Imagenet = [0.229, 0.224, 0.225]
-M = np.loadtxt('data_supp/mat.txt', dtype='i', delimiter=' ')
+#M = np.loadtxt('data_supp/mat.txt', dtype='i', delimiter=' ')
 
 def label_reader(json_file, type='Flower'):
   """ Read a label file for an image in JSON format:
@@ -42,20 +42,21 @@ def label_reader(json_file, type='Flower'):
   return bboxes
 
 
-def draw_bboxes(target, name, thresh = 0.8, img_dir = 'drive/MyDrive/GBH/data_test/images/'):
-  # How it is used : draw_bboxes(prediction[0], name=dataset_test.imgs[target['image_id']],thresh=0.6)
-    img_path = img_dir + name
-    image = cv2.imread(img_path)
+def draw_bboxes(target, image, thresh = 0.5, scale = 1):
+
+    img = image.copy()
+
     for [xm,ym,xM,yM], label, score in zip(target["boxes"], target["labels"], target["scores"]):
-      color = ()
       if label == 1: c = (255,0,0)
-      if label == 2: c = (0,255,0)
+      else: c = (0,255,0)
       if score > thresh :
-        image = cv2.rectangle(image, (xm,ym), (xM,yM), c, 2)
+        img = cv2.rectangle(img, (int(xm),int(ym)), (int(xM),int(yM)), c, 2)
     
-    rescale = (int(image.shape[1]/4), int(image.shape[0]/4))
-    image = cv2.resize(image, rescale)
-    cv2.imshow("Boundi boxes", image)
+    rescale = (int(image.shape[1]/scale), int(image.shape[0]/scale))
+    img = cv2.resize(img, rescale)
+    cv2.imshow("Boundi boxes", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 def get_img_transformed(train=False): #TODO modify min and max sizes
   """
@@ -193,8 +194,7 @@ def eval_custom(dataset, model, device):
   return predictions
 
 
-def get_object_detection_model(num_classes, mtype = 'Resnet50_FPN'):
-    # TODO add YOLOv5x
+def get_object_detection_model(num_classes, device, mtype = 'Resnet50_FPN', weights_path = '../models/best_Resnet50_FPN.pt'):
     # load a model pre-trained on COCO
 
     if mtype ==  'Resnet50_FPN':
@@ -203,6 +203,7 @@ def get_object_detection_model(num_classes, mtype = 'Resnet50_FPN'):
       in_features = model.roi_heads.box_predictor.cls_score.in_features
       # replace the pre-trained head with a new one
       model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+      model.load_state_dict(torch.load(weights_path, map_location=device))
 
     if mtype == 'MobileNetV3_largeFPN':
 
@@ -211,6 +212,7 @@ def get_object_detection_model(num_classes, mtype = 'Resnet50_FPN'):
       in_features = model.roi_heads.box_predictor.cls_score.in_features
       # replace the pre-trained head with a new one
       model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+      model.load_state_dict(torch.load(weights_path, map_location=device))
     
     if mtype == 'MobileNetV3_largeFPN_320':
       # Low resolution network
@@ -219,6 +221,7 @@ def get_object_detection_model(num_classes, mtype = 'Resnet50_FPN'):
       in_features = model.roi_heads.box_predictor.cls_score.in_features
       # replace the pre-trained head with a new one
       model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+      model.load_state_dict(torch.load(weights_path, map_location=device))
 
     if mtype == 'MaskRCNN':
       # load an instance segmentation model pre-trained on COCO
@@ -236,6 +239,11 @@ def get_object_detection_model(num_classes, mtype = 'Resnet50_FPN'):
       model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
                                                           hidden_layer,
                                                           num_classes)
+      model.load_state_dict(torch.load(weights_path, map_location=device))
+
+    if mtype == 'YOLOv5x':
+        #model = torch.hub.load('ultralytics/yolov5', 'custom', path =weights_path )
+        model = torch.hub.load('ultralytics/yolov5', 'yolov5x')
 
     return model
 

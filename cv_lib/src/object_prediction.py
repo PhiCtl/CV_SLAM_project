@@ -4,16 +4,21 @@ from skspatial.objects import Points, Plane
 
 
 class ObjectPredictor():
-    def __init__(self, device, model_name = 'MobileNetV3_largeFPN', weights_path = '../models/', classes=2):
+    def __init__(self, device, model_name = 'MobileNetV3_largeFPN', weights_path = '/home/phil/Documents/Projects/CV_SLAM_project/cv_lib/models/', classes=2):
 
-        assert model_name in ['Resnet50_FPN', 'MobileNetV3_largeFPN', 'MobileNetV3_largeFPN_320', 'MaskRCNN', 'YOLOv5x'], "Error: model not found"
+        assert model_name in ['Resnet50_FPN',\
+                              'MobileNetV3_largeFPN',\
+                              'MobileNetV3_largeFPN_320',\
+                              'MaskRCNN',\
+                              'YOLOv5x'],\
+            "Error: model not found"
 
         # Load model
-        self.model = get_object_detection_model(num_classes=classes, mtype= model_name)
-        self.device = device
         weights_path += 'best_' + model_name + ".pt"
-        self.model.load_state_dict(torch.load(weights_path, map_location=self.device))
-        self.mode_name = model_name
+        self.device = device
+        self.model = get_object_detection_model(num_classes=classes, mtype= model_name, weights_path= weights_path, \
+                                                device=self.device)
+        self.model_name = model_name
         # Transform
         self.transform = get_img_transformed(train=False)
 
@@ -31,9 +36,13 @@ class ObjectPredictor():
         t1 = time.time()
         with torch.no_grad():
             pred = self.model(img)
+        if self.model_name == 'YOLOv5x':
+            out = self.model(img)
+            pred = {'boxes': out.xyxy[0][:,:4], 'scores': out.xyxy[0][:,4].flatten(), 'labels': out.xyxy[0][:,5].flatten() + 1}
         if verbose:
             print("Elapsed time {} s".format(time.time() - t1))
             print("{} flowers detected.".format(len(pred[0]['scores'] > conf)))
+            draw_bboxes(pred[0], image)
 
         poses = pred_to_pose(pred[0], image, camera, conf=conf)
 
@@ -83,18 +92,20 @@ def pred_to_pose(p, img, camera, mode='img', radius = 3, conf = 0.5):
         p['masks'] = torch.zeros((len(p['labels']),ny,nx))
 
     for box, score, mask in zip(p['boxes'], p['scores'], p['masks']):
-        cx = (box[2] + box[0])/2
-        cy = (box[1] + box[3])/2
+        cx = int(((box[2] + box[0])/2).numpy())
+        cy = int(((box[1] + box[3])/2).numpy())
         depth_frame = camera.depth_frame
         # remember: img has shape (H,W,3) where H:ny, W:nx
-        depth = depth_frame[ max(0,cy-radius) : min(ny, cy+radius), max(0, cx-radius) : min(nx, cx+radius)]
+        my, My, mx, Mx = max(0,cy-radius), min(ny, cy+radius), max(0, cx-radius), min(nx, cx+radius)
+        depth = depth_frame[ my:My, mx:Mx]
         cz = depth.mean()
 
         [x, y, z] = camera.image_2_camera([cx / 1000, cy / 1000], cz / 1000) # in meters instead of mm
         if score >= conf:
             centroids.append([x, y, z, score])
 
-    orientations = get_orientation(p, img, camera, mode=mode, conf=conf) # of size Nb correct detection x 3
+    #orientations = get_orientation(p, img, camera, mode=mode, conf=conf) # of size Nb correct detection x 3
+    orientations = np.zeros((len(centroids),3))
 
     if centroids :
         return {'centroids_coo': np.array(centroids), 'nb_detected': len(p['scores'] >= conf), 'orientations': orientations}, True

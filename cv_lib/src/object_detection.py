@@ -6,8 +6,8 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pyrealsense2 as rs
 
-class Object_Detection(): 
-    
+class ObjectDetector():
+
     def __init__(self): #TODO: Members to refine
         """Args: input image (BGR) from which we perform object detection"""
         
@@ -56,7 +56,7 @@ class Object_Detection():
         cv2.destroyAllWindows()
     
         if save:
-            cv2.imwrite('../data/kmeans.jpg', clust)
+            cv2.imwrite('../data/plant_holder/kmeans.jpg', clust)
             # Print
             cv2.imshow('K-means',clust)
             cv2.imshow('Original', output)
@@ -136,7 +136,7 @@ class Object_Detection():
             #cv2.drawContours(mask_obj, el, -1, (255, 255, 255), 2) # image, contours, contourIdx, color, thickness
             #self.masks.append(mask_obj)
             # Centroid pixels coordinates
-            if verbose: print("x : {}, y : {}".format(cx, cy))
+            #print("x : {}, y : {}".format(cx, cy))
             
             # Plots
             if verbose:
@@ -154,7 +154,7 @@ class Object_Detection():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
         if verbose : print("Done")
-        return not self.detected_obj #check if objects centroid were found
+        return self.detected_obj #check if objects centroid were found
     
     def get_pos(self, camera, verbose = False): #OK
     

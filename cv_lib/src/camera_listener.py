@@ -31,6 +31,7 @@ class CameraListener: # TODO test
     def get_frames(self):
         img = rospy.wait_for_message(topic_camera_rgb, Image)
         img_depth = rospy.wait_for_message(topic_camera_depth, Image)
+        print('got frames')
         try:
             # convert to CV BGR image
             self.bgr_image = self.bridge.imgmsg_to_cv2(img, desired_encoding="bgr8")  # BGR format

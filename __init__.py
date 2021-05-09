@@ -20,7 +20,7 @@ def add_path(path):
 currentPath = os.path.dirname(os.path.realpath(__file__))
 
 # Add lib to PYTHONPATH
-cvPath = os.path.join(currentPath, 'ros_ws/src/cv_ros/src/cv_lib')
+cvPath = os.path.join(currentPath, 'ros_ws/src/cv_ros/src/cv_lib/src')
 
 add_path(currentPath)
 add_path(cvPath)

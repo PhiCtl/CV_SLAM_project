@@ -8,7 +8,7 @@ from cv_lib.src.myUtils import draw_bboxes
 from cv_ros.msg import ObjectPose
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
-import tf2_ros, rospy, torch, cv2
+import tf2_ros, rospy, torch, cv2, quaternion
 
 # topics list
 topic_rs_status = '/RS_status'
@@ -25,6 +25,7 @@ class PosePublisher():
         self.cv_status = String()
         self.buffer = tf2_ros.Buffer()
         self.rate = rospy.Rate(10)
+        print("Ready")
 
     def publish_pose(self, centroid_coo, plane_vector_coo, seq_id, object_type):
         self.msg.header.frame_id, self.msg.header.stamp, self.msg.header.seq, self.msg.object_type = "camera", rospy.Time.now(), seq_id, String(object_type)
@@ -80,14 +81,10 @@ class PosePublisher():
 def run():
     publisher = PosePublisher()
 
-    # device
-    cuda_available = torch.cuda.is_available()
-    device = torch.device("cuda:0" if cuda_available else "cpu")
-
     # start camera listener and detector
     camera = CameraListener()
     detector = ObjectDetector()
-    predictor = ObjectPredictor(device, model_name='Resnet50_FPN')
+    predictor = ObjectPredictor(model_name='YOLOv5x')
     publisher.set_status()
 
     # counter
@@ -113,9 +110,10 @@ def run():
 
             # detect flowers
             cv2.imshow("test", camera.bgr_image)
+            cv2.imwrite('to_test.jpg', camera.bgr_image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-            poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.8, verbose=True)
+            poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.4, verbose=True)
 
             if found_plantHolders:
                 publisher.set_status('SUCCESS')
@@ -125,7 +123,7 @@ def run():
                 publisher.set_status('SUCCESS')
                 publisher.publish_pose(poses['centroids_coo'][:,:3], poses['centroids_coo'][:,:3], i, 'flowers')
 
-            else:
+            if not found_plantHolders and not found_flowers:
                 publisher.set_status('RETRY')
         publisher.publish_status()
         publisher.rate.sleep()

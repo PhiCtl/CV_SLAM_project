@@ -42,15 +42,16 @@ def label_reader(json_file, type='Flower'):
   return bboxes
 
 
-def draw_bboxes(target, image, thresh = 0.5, scale = 1):
+def draw_bboxes(target, image, conf = 0.5, scale = 1):
 
     img = image.copy()
 
     for [xm,ym,xM,yM], label, score in zip(target["boxes"], target["labels"], target["scores"]):
       if label == 1: c = (255,0,0)
       else: c = (0,255,0)
-      if score > thresh :
-        img = cv2.rectangle(img, (int(xm),int(ym)), (int(xM),int(yM)), c, 2)
+      if score > conf :
+        img = cv2.rectangle(img, (int(xm),int(ym)), (int(xM),int(yM)), c, 4)
+        print("flower score: ", score)
     
     rescale = (int(image.shape[1]/scale), int(image.shape[0]/scale))
     img = cv2.resize(img, rescale)
@@ -242,8 +243,8 @@ def get_object_detection_model(num_classes, device, mtype = 'Resnet50_FPN', weig
       model.load_state_dict(torch.load(weights_path, map_location=device))
 
     if mtype == 'YOLOv5x':
-        #model = torch.hub.load('ultralytics/yolov5', 'custom', path =weights_path )
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5x')
+        model = torch.hub.load('ultralytics/yolov5', 'custom', path =weights_path )
+        #model = torch.hub.load('ultralytics/yolov5', 'yolov5x')
 
     return model
 

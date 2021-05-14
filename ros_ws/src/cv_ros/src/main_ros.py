@@ -109,10 +109,6 @@ def run():
             detector.get_plane_orientation(camera, plot=False)
 
             # detect flowers
-            cv2.imshow("test", camera.bgr_image)
-            cv2.imwrite('to_test.jpg', camera.bgr_image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
             poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.4, verbose=True)
 
             if found_plantHolders:

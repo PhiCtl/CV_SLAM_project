@@ -77,3 +77,9 @@ class CameraListener: # TODO test
             return rs2.rs2_deproject_pixel_to_point(self.intrinsics, pixels, depth)
         else:  # TODO error handling here
             pass
+
+    def point_2_pixel(self, plane):
+        if self.intrinsics:
+            return rs2.rs2_project_point_to_pixel(self.intrinsics, plane)
+        else:
+            return None

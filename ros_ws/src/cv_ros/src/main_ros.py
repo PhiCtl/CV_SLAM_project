@@ -124,5 +124,6 @@ def run():
         publisher.publish_status()
         publisher.rate.sleep()
 
+
 if __name__ == '__main__':
     run()

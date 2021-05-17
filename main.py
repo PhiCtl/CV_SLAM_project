@@ -4,29 +4,26 @@ Created on Thu Mar 11 16:50:29 2021
 
 @author: Philippine
 """
-import os
+import os, cv2, torch
 import numpy as np
-import cv2
-from cv_lib.rs_camera import RS_Camera
-from cv_lib.object_detection import Object_Detection
+from cv_lib.src.rs_camera import RS_Camera
+from cv_lib.src.object_detection import ObjectDetector
+from cv_lib.src.object_prediction import ObjectPredictor
 
 currentPath = os.path.dirname(os.path.realpath(__file__))
 
 def run():
-    
+
     # Start camera and get frames
     camera = RS_Camera()
     camera.start_RS()
     camera.get_frames()
-    
-    #detect object
-    detector = Object_Detection(camera.bgr_image)
-    #detector.k_means(save = True)
-    detector.get_mask()
-    detector.find_centroids(threshold = 100)
-    detector.get_pos(camera)
-    detector.get_plane_orientation(camera, plot = True)
-    
+
+    #predict flowers
+    predictor = ObjectPredictor(model_name='YOLOv5x')
+    poses, found_flowers = predictor(camera.bgr_image, camera, conf=0.4, verbose=True)
+    if found_flowers: print(poses)
+
     
 if __name__ == '__main__':
     run()

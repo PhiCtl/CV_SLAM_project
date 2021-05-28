@@ -99,7 +99,7 @@ class ObjectDetector():
         # Store mask
         self.mask = mask
     
-        if plot: #TODO correct segfault in plot mode
+        if plot:
             # Bitwise and mask and original picture
             res = cv2.bitwise_and(output,output, mask= mask)
             cv2.imshow('result',res)
@@ -108,7 +108,7 @@ class ObjectDetector():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             print("Closing windows...")
-        if plot: print("Done")
+            print("Done")
     
     
     def find_centroids(self, threshold = 2000, verbose = False): #OK
@@ -153,7 +153,7 @@ class ObjectDetector():
             cv2.imshow('centroid',output)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
-        if verbose : print("Done")
+            print("Done")
         return self.detected_obj #check if objects centroid were found
     
     def get_pos(self, camera, verbose = False): #OK
@@ -197,7 +197,6 @@ class ObjectDetector():
             points = np.empty((obj_pix.shape[0],3))
             points[:,0] = obj_pix[:,1]
             points[:,1] = obj_pix[:,0]
-            print(camera.depth_frame.shape, obj_pix.shape, camera.bgr_image.shape)
             points[:,2] = camera.depth_frame[obj_pix[:,0], obj_pix[:,1]]
 
             # Feed into Points, best fit etc...

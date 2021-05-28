@@ -14,7 +14,6 @@ import torch.functional as F
 
 MEAN_Imagenet = [0.485, 0.456, 0.406]
 STD_Imagenet = [0.229, 0.224, 0.225]
-#M = np.loadtxt('data_supp/mat.txt', dtype='i', delimiter=' ')
 
 def label_reader(json_file, type='Flower'):
   """ Read a label file for an image in JSON format:
@@ -42,22 +41,27 @@ def label_reader(json_file, type='Flower'):
   return bboxes
 
 
-def draw_bboxes(target, image, conf = 0.5, scale = 1):
+def draw_bboxes(target, image, conf = 0.5, scale = 1, name=''):
 
     img = image.copy()
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    full_name = "predictions/" + name + "_predictions.jpg"
 
     for [xm,ym,xM,yM], label, score in zip(target["boxes"], target["labels"], target["scores"]):
       if label == 1: c = (255,0,0)
       else: c = (0,255,0)
       if score > conf :
         img = cv2.rectangle(img, (int(xm),int(ym)), (int(xM),int(yM)), c, 4)
-        print("flower score: ", score)
+        cv2.putText(img, str(np.trunc(score.item()*100)), (int(xm), int(yM)), font, 0.5, c, 1, cv2.LINE_AA)
+        print("flower score: ", score.item())
     
     rescale = (int(image.shape[1]/scale), int(image.shape[0]/scale))
     img = cv2.resize(img, rescale)
-    cv2.imshow("Boundi boxes", img)
+    cv2.imshow("Prediction", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+    cv2.imwrite(full_name, img)
 
 def get_img_transformed(train=False): #TODO modify min and max sizes
   """
@@ -247,6 +251,8 @@ def get_object_detection_model(num_classes, device, mtype = 'Resnet50_FPN', weig
         #model = torch.hub.load('ultralytics/yolov5', 'yolov5x')
 
     return model
+
+
 
 
 

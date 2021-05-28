@@ -14,7 +14,7 @@ class RS_Camera():
         self.pipeline = None
         self.colorizer = None
         self.depth_scale = None
-        self.start_RS()
+        #self.start_RS()
 
         self.frames = None
         self.bgr_image = None
@@ -48,12 +48,12 @@ class RS_Camera():
         frames = align.process(frames)
         # Update color and depth frames:
         self.depth_frame = frames.get_depth_frame()
-        colorized_depth = np.asanyarray(self.colorizer.colorize(depth_frame).get_data())
+        colorized_depth = np.asanyarray(self.colorizer.colorize(self.depth_frame).get_data())
         # Get depth frame
         bgr_frame = frames.get_color_frame()
 
         # Colorize depth frame to jet colormap
-        colorized_depth = self.colorizer.colorize(depth_frame)
+        colorized_depth = self.colorizer.colorize(self.depth_frame)
         # Convert depth_frame to numpy array to render image in opencv
         colorized_depth = np.asanyarray(colorized_depth.get_data())
         bgr_image = np.asanyarray(bgr_frame.get_data())
@@ -83,4 +83,27 @@ class RS_Camera():
         return depth_frame.get_distance(cx, cy)
 
     
-    #def camera_2_world(self, points): #TODO: Implement
+class Camera:
+
+    def __init__(self, intrinsics):
+        self.intrinsics = rs.intrinsics()
+        self.intrinsics.width = intrinsics['width']
+        self.intrinsics.height = intrinsics['height']
+        self.intrinsics.ppx = intrinsics['p'][0]
+        self.intrinsics.ppy = intrinsics['p'][1]
+        self.intrinsics.fx = intrinsics['f'][0]
+        self.intrinsics.fy = intrinsics['f'][1]
+        self.intrinsics.model = rs.distortion.brown_conrady
+
+        self.intrinsics.coeffs = [i for i in intrinsics['D']]
+
+    def set_frames(self, bgr_pic, depth_pic):
+        self.bgr_image = bgr_pic
+        self.depth_frame = depth_pic
+
+    def image_2_camera(self, pixels, depth):
+        return rs.rs2_deproject_pixel_to_point(self.intrinsics, pixels, depth)
+
+    def get_distance(self, cx, cy):
+        z = self.depth_frame[cy, cx]
+        return z  # y,x convention in opencv

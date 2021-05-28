@@ -9,11 +9,13 @@ from cv_ros.msg import ObjectPose
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 import tf2_ros, rospy, torch, cv2, quaternion
+import numpy as np
 
 # topics list
 topic_rs_status = '/RS_status'
 topic_cv_status = '/CV_status'
 topic_cv_data = '/CV_data'
+topic_cv_obj = '/CV_object'
 
 class PosePublisher():
 
@@ -21,6 +23,7 @@ class PosePublisher():
         rospy.init_node("Vision")
         self.pub = rospy.Publisher(topic_cv_data, ObjectPose, queue_size=10)
         self.pub_state = rospy.Publisher(topic_cv_status, String, queue_size=10)
+        self.pub_obj = rospy.Publisher(topic_cv_obj, String, queue_size=10)
         self.msg = ObjectPose()
         self.cv_status = String()
         self.buffer = tf2_ros.Buffer()
@@ -36,10 +39,9 @@ class PosePublisher():
             p.pose.position.x = centroid[0]
             p.pose.position.y = centroid[1]
             p.pose.position.z = centroid[2]
-            print("coordinates : {}".format(centroid))
 
             [p.pose.orientation.x, p.pose.orientation.y, p.pose.orientation.z] = plane
-            #p = self.transform_cam_to_world_coo_cb(self, p)
+            #p = self.transform_cam_to_world_coo_cb(self, p) # TODO uncomment when in actual ROS environment
             self.msg.poses.append(p)
 
         self.pub.publish(self.msg)
@@ -49,10 +51,13 @@ class PosePublisher():
     def publish_status(self):
         self.pub_state.publish(self.cv_status)
 
+    def publish_obj_detected(self, data):
+        self.pub_obj.publish(data)
+
     def set_status(self, str='IDLE'):
         self.cv_status.data = str
 
-    """def transform_cam_to_world_coo_cb(self, data):
+    def transform_cam_to_world_coo_cb(self, data):
         trans = self.buffer.lookup_transform("world", "camera", rospy.Time(0))  # data.header.stamp)
         data.header.frame_id = "world"
         rot = quaternion.quaternion()
@@ -75,7 +80,7 @@ class PosePublisher():
         data.pose.position.y += trans.transform.translation.y
         data.pose.position.z += trans.transform.translation.z
 
-        return data"""
+        return data
 
 
 def run():
@@ -87,8 +92,13 @@ def run():
     predictor = ObjectPredictor(model_name='YOLOv5x')
     publisher.set_status()
 
-    # counter
-    i = 0
+    # counters
+    i, j = 1,1
+    n = 1
+
+    # utils
+    flower_pos = []
+    plant_hold_pos = []
 
     while not rospy.is_shutdown():
 
@@ -104,23 +114,58 @@ def run():
             detector.set_picture(camera.bgr_image)
             detector.get_mask(it=2)
             found_plantHolders = detector.find_centroids(threshold=1000, verbose=False)
+
             # Find positions and orientations
             detector.get_pos(camera, verbose=False)
             detector.get_plane_orientation(camera, plot=False)
 
             # detect flowers
-            poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.4, verbose=True)
+            poses, found_flowers = predictor(camera.bgr_image, camera, conf = 0.3, verbose=True)
 
+            #If we found any plant holder
             if found_plantHolders:
-                publisher.set_status('SUCCESS')
-                publisher.publish_pose(detector.coo, detector.planes, i, 'plant_holders')
-                detector.reset()
-            if found_flowers:
-                publisher.set_status('SUCCESS')
-                publisher.publish_pose(poses['centroids_coo'][:,:3], poses['centroids_coo'][:,:3], i, 'flowers')
 
-            if not found_plantHolders and not found_flowers:
+                plant_hold_pos.append([detector.coo, detector.planes])# I want dim = (i, N, 2, 3)
+
+
+                # Make mean over n values
+                if i%n == 0:
+                    plant_hold_pos = np.array(plant_hold_pos)
+                    mean = plant_hold_pos.mean(axis=0)
+                    plant_hold_pos = []
+                    publisher.publish_pose(mean[0, :, :], mean[1, :, :], i, 'plant_holders')
+                # This is a success
+                publisher.set_status('SUCCESS')
+
+                # Return number and type of detected objects
+                msg = str(len(detector.coo)) + ' plant holder(s) detected'
+                publisher.publish_obj_detected(msg)
+
+                # Reset detector and update counter
+                detector.reset()
+                i += 1
+
+            if found_flowers:
+
+                flower_pos.append([poses['centroids_coo'][:,:3], poses['orientations']])
+
+                if j%n == 0:
+                    flower_pos = np.array(flower_pos)
+                    mean = flower_pos.mean(axis=0)
+                    publisher.publish_pose(mean[0,:,:], mean[1,:,:], j, 'flowers')
+                    flower_pos = []
+                # Update counter
+                j += 1
+                # publisher.publish_pose(poses['centroids_coo'][:,:3], poses['orientations'], j, 'flowers')
+
+                # Publish state and number of flower detected
+                publisher.set_status('SUCCESS')
+                msg = str(poses['nb_detected']) + ' flower(s) detected'
+                publisher.publish_obj_detected(msg)
+
+            if not found_flowers: #and not found_plantHolders:
                 publisher.set_status('RETRY')
+                publisher.publish_obj_detected('None')
         publisher.publish_status()
         publisher.rate.sleep()
 

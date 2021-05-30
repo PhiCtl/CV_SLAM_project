@@ -154,7 +154,7 @@ class ObjectDetector():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             print("Done")
-        return self.detected_obj #check if objects centroid were found
+        return len(self.detected_obj) > 0 #check if objects centroid were found
     
     def get_pos(self, camera, verbose = False): #OK
     
@@ -170,7 +170,7 @@ class ObjectDetector():
             pos = camera.image_2_camera([cx,cy], cz)
             [x,y,z] = pos
             #print("Coordinates : {}".format(pos))
-            self.coo.append([x/1000, y/1000, z/1000])
+            self.coo.append(np.array([x/1000, y/1000, z/1000]))
         if verbose: print("Done")
         
     def get_plane_orientation(self, camera, plot = False ): 

@@ -136,16 +136,15 @@ def get_pose_and_orientation(mask, camera, verbose=False):
 
     """
     # Find where is the flower in the mask
-    obj_pix = np.argwhere(mask > 1e-6)
+    obj_indexes= np.argwhere(mask > 1e-6)
 
-    if (obj_pix.size > 0):
+    if (obj_indexes.size > 0):
         # We compute the orientation
-        points = np.empty((obj_pix.shape[0], 3))
-        # Image processing versus matrix conventions -> nx: Width corresponds to shape[1] and ny: Height to shape[0]
-        points[:, 0] = obj_pix[:, 1]
-        points[:, 1] = obj_pix[:, 0]
-        # We retrieve the depth
-        points[:,2] = camera.depth_frame[obj_pix[:, 0], obj_pix[:, 1]]
+        obj_pix = np.empty((obj_indexes.shape[0], 2))
+        # needs to be reverted here -> to pixel coordinates (u,v) = (y,x)
+        obj_pix[:, 1] = obj_indexes[:, 0]
+        obj_pix[:, 0] = obj_indexes[:, 1]
+        points = camera.image_2_camera(obj_pix, camera.depth_frame[obj_indexes[:, 0], obj_indexes[:, 1]])
         # We fit the plane
         pts = Points(points)  # must be built with a nd.array
         plane = Plane.best_fit(pts)

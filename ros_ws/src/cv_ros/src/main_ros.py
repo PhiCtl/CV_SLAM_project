@@ -122,7 +122,7 @@ def run():
             # detect plant_holder
             detector.set_picture(camera.bgr_image)
             detector.get_mask(it=2)
-            found_plantHolders = detector.find_centroids(threshold=1000, verbose=False)
+            found_plantHolders = detector.find_centroids(threshold=1000, verbose=True)
 
             # Find positions and orientations
             detector.get_pos(camera, verbose=False)
@@ -172,6 +172,41 @@ def run():
         publisher.publish_status()
         publisher.rate.sleep()
 
+def test():
+    publisher = PosePublisher()
+    camera = CameraListener()
+
+    camera.get_frames()
+    camera.get_info()
+    K = camera.get_matrix()
+    K_inv = np.linalg.inv(K)
+
+    # Pixel coordinates
+    rd_pixel = np.array([[200, 200],
+                        [100,150],
+                        [150,50],
+                         [300,300]]) # (4,2)
+    # Pixel coordinates need to be reverted to array indexing -> (u,v) = (y,x)
+    # should be (4,)
+    rd_pixel_depth = np.array([camera.depth_frame[j,i] for i, j in rd_pixel]) # so j,i <- i,j
+    rd_pixel_augmented = np.append(rd_pixel, np.ones((len(rd_pixel),1)), axis = 1) # (4,3)
+    # With distortion
+    real_points = []
+    # without distortion point wise
+    approx1 = []
+    for pixel, pixel_au, depth in zip(rd_pixel, rd_pixel_augmented, rd_pixel_depth):
+        real_points.append(camera.image_2_camera(pixel, depth))
+        approx1.append(depth * K_inv @ pixel_au)
+
+    # Without distortion
+    approximated_points = camera.image_2_camera(rd_pixel, rd_pixel_depth)
+    # print('Real points: ', real_points)
+
+    # Should be equal
+    print('Approximated points: ', approximated_points)
+    print('Approximated points point wise: ', approx1)
+
 
 if __name__ == '__main__':
     run()
+    # test()

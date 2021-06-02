@@ -128,7 +128,7 @@ class ObjectDetector():
             # Find centroid
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
-            self.detected_obj.append([cx,cy])
+            self.detected_obj.append([cx,cy]) # pixel coordinates (u,v), correct Open CV convention order
             
             # Extract contours
             mask_obj = np.zeros((output.shape[0], output.shape[1])) # 2D mask 1 channel only
@@ -162,27 +162,25 @@ class ObjectDetector():
            Args: camera from which we retrieve the depth and the intrinsics"""
         
         # Retrieve depth from camera
-        # Compute depth of each centroid
+        # Compute depth of each centroid (pixel coordinate)
         if verbose: print("Finding 3D coordinates...")
         for [cx,cy] in self.detected_obj:
             cz = camera.get_distance(cx,cy)
             # Store each object in camera coordinates
-            pos = camera.image_2_camera([cx,cy], cz)
+            pos = camera.image_2_camera((cx,cy), cz)
             [x,y,z] = pos
-            #print("Coordinates : {}".format(pos))
+            print("Coordinates : {}".format(pos))
             self.coo.append(np.array([x/1000, y/1000, z/1000]))
         if verbose: print("Done")
         
     def get_plane_orientation(self, camera, plot = False ): 
-        #TODO : Make plot look nicer
-        #TODO Correct get plane orientation (objects are too thick)
+
         """
         Computes normal of object plane and plot
         Args: RS_camera object
         """
         
-        thresh = 1e-6 #TODO: is it useful ?
-        
+        thresh = 1e-6
         # Set plot
         if plot:
             fig = plt.figure()
@@ -193,11 +191,12 @@ class ObjectDetector():
         for mask in self.masks:
     
             # Compute 3D coordinates of all pixels within the object
-            obj_pix = np.argwhere(mask > thresh) # y,x
-            points = np.empty((obj_pix.shape[0],3))
-            points[:,0] = obj_pix[:,1]
-            points[:,1] = obj_pix[:,0]
-            points[:,2] = camera.depth_frame[obj_pix[:,0], obj_pix[:,1]]
+            obj_indexes= np.argwhere(mask > thresh) # array indexing (x,y)
+            obj_pix = np.empty((obj_indexes.shape[0],2))
+            # needs to be reverted here -> to pixel coordinates (u,v) = (y,x)
+            obj_pix[:,1] = obj_indexes[:,0]
+            obj_pix[:,0] = obj_indexes[:,1]
+            points = camera.image_2_camera(obj_pix, camera.depth_frame[obj_indexes[:,0], obj_indexes[:,1]])
 
             # Feed into Points, best fit etc...
             pts = Points(points) #must be built with a nd.array

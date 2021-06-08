@@ -12,36 +12,25 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 import torch.functional as F
 #from google.colab.patches import cv2_imshow
 
+################################################################################################################
+# SOME CONSTANTS
+################################################################################################################
+
 MEAN_Imagenet = [0.485, 0.456, 0.406]
 STD_Imagenet = [0.229, 0.224, 0.225]
 
-def label_reader(json_file, type='Flower'):
-  """ Read a label file for an image in JSON format:
-  Args: valid file path name
-   type (str) flower for masks, and Flower for bbox
-  Return: dictionnary of np.array dim:(Nx4) of bounding boxes coordinates [xmin, ymin, xmax, ymax]
-  """
-  data = pd.read_json(json_file)
-  bboxes = {}
-  
-  for _, d in data.iterrows():
-    name = d['External ID']
-
-    pix = []
-    for l in d['Label']['objects']:
-        if 'bbox' in l:
-            if l['title'] == type:
-                b = l['bbox']
-                pix.append([b['left'],b['top'], b['left']+b['width'], b['top']+b['height']])
-        # if masks
-    
-    if pix:
-        bboxes[name] = np.array(pix) # of size (N,4), with opencv image convention
-  
-  return bboxes
-
+################################################################################################################
+# VISUALIZATIONS
+################################################################################################################
 
 def draw_bboxes(target, image, conf = 0.5, scale = 1, name=''):
+    """
+    Draws bounding boxes around predictions
+    :param target: prediction dictionnary with fileds : 'boxes', 'labels', 'scores
+    :param image: ndarray of dimensions [H, W, 3]
+    :param conf: confidence score threshold below which detection is not considered
+    :param name: to save the detections picture
+    """
 
     img = image.copy()
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -63,7 +52,159 @@ def draw_bboxes(target, image, conf = 0.5, scale = 1, name=''):
 
     cv2.imwrite(full_name, img)
 
-def get_img_transformed(train=False): #TODO modify min and max sizes
+def draw_corners(image, corners):
+  img = image.copy()
+  for [a,b,c,d,e,f,g,h] in corners:
+      img = cv2.circle(img, (a,b), radius=1, color=(255, 255, 255), thickness=2)
+      img = cv2.circle(img, (c,d), radius=1, color=(255, 255, 255), thickness=2)
+      img = cv2.circle(img, (e,f), radius=1, color=(255, 255, 255), thickness=2)
+      img = cv2.circle(img, (g,h), radius=1, color=(255, 255, 255), thickness=2)
+  #cv2_imshow(img)
+  cv2.imshow("Image rotated with corners",img)
+
+def nothing(x):
+    pass
+
+def create_hsv_trackbar(test_img, scale = 1):
+    """
+    Creates a GUI to compute the right HSV range for efficient detection
+    Window closes when escape key is pressed
+    :param test_img: color frame from camera
+    :param scale: to rescale the image (opt)
+    :return:
+    """
+    new_height = int(test_img.shape[0] * scale)
+    new_width = int(test_img.shape[1] * scale)
+    img = cv2.resize(test_img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    img = cv2.medianBlur(img, 5)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    mask = hsv.copy()
+
+    cv2.namedWindow('Mask_tuning')
+
+    # create trackbars for color change
+    cv2.createTrackbar('HL','Mask_tuning',0,180,nothing)
+    cv2.createTrackbar('HH', 'Mask_tuning', 0, 180, nothing)
+    cv2.createTrackbar('SL','Mask_tuning',0,255,nothing)
+    cv2.createTrackbar('SH', 'Mask_tuning', 0, 255, nothing)
+    cv2.createTrackbar('VL','Mask_tuning',0,255,nothing)
+    cv2.createTrackbar('VH', 'Mask_tuning', 0, 255, nothing)
+    # kernel size
+    cv2.createTrackbar('s', 'Mask_tuning', 3, 11, nothing)
+    # nb of iterations
+    cv2.createTrackbar('it', 'Mask_tuning',1, 4, nothing)
+    # threshold
+    cv2.createTrackbar('th', 'Mask_tuning', 100, 3000, nothing)
+
+# create switch for ON/OFF functionality
+    switch = '0 : OFF \n1 : ON'
+    cv2.createTrackbar(switch, 'Mask_tuning',0,1,nothing)
+
+    font = cv2.FONT_HERSHEY_DUPLEX
+    while(1):
+
+        cv2.imshow('Mask_tuning',mask)
+        k = cv2.waitKey(1) & 0xFF
+        if k == 27:
+            break
+
+        # get current positions of trackbars
+        hl = cv2.getTrackbarPos('HL','Mask_tuning')
+        hh = cv2.getTrackbarPos('HH', 'Mask_tuning')
+        sl = cv2.getTrackbarPos('SL','Mask_tuning')
+        sh = cv2.getTrackbarPos('SH','Mask_tuning')
+        vl = cv2.getTrackbarPos('VL','Mask_tuning')
+        vh = cv2.getTrackbarPos('VH', 'Mask_tuning')
+        sw = cv2.getTrackbarPos(switch,'Mask_tuning')
+        s = cv2.getTrackbarPos('s', 'Mask_tuning')
+        it = cv2.getTrackbarPos('it', 'Mask_tuning')
+        t = cv2.getTrackbarPos('th', 'Mask_tuning')
+
+
+        if sw == 0:
+            mask[:] = 0
+        else:
+            low = np.array([hl, sl, vl], dtype=np.float32)
+            upp = np.array([hh, sh, vh], dtype=np.float32)
+            mask = cv2.inRange(hsv, low, upp)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (s, s))
+            mask = cv2.erode(mask, kernel, iterations=it)
+    cv2.destroyAllWindows()
+
+def create_canny_slidebar(img, scale = 1):
+
+    """
+    Creates a trackbar to find threshold fo canny edge detection
+    It was just a trial slidebar
+    """
+
+    def kmeans(img, nb=3):
+        output = img.copy()
+        clust = output.reshape((-1, 3))
+        clust = np.float32(clust)  # should be flattened and of type float32
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)  # max iter and accuracy epsilon
+        K = nb
+        ret, label, center = cv2.kmeans(clust, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+        center = np.uint8(center)
+        res = center[label.flatten()]
+        clust = res.reshape((output.shape))
+
+        return clust
+
+    def get_contour(img, thresh=100):
+        contours, _ = cv2.findContours(img,)
+
+    new_height = int(img.shape[0] * scale)
+    new_width = int(img.shape[1] * scale)
+    output = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+    output = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
+
+    edge = np.zeros(output.shape, np.uint8)
+    else_img = np.zeros_like(output)
+
+    cv2.namedWindow('Canny threshold')
+
+    # create trackbars for color change
+    cv2.createTrackbar('L', 'Canny threshold', 0, 255, nothing)
+    cv2.createTrackbar('H', 'Canny threshold', 0, 255, nothing)
+    cv2.createTrackbar('k', 'Canny threshold', 2,30, nothing)
+    cv2.createTrackbar('t', 'Canny threshold', 2,10, nothing)
+
+    # create switch for ON/OFF functionality
+    blur = '0 : OFF \n1 : ON'
+    cv2.createTrackbar(blur, 'Canny threshold', 0, 1, nothing)
+
+    while (1):
+        img_ = np.vstack((edge, else_img))
+        cv2.imshow('Canny threshold', img_)
+
+        wk = cv2.waitKey(1) & 0xFF
+        if wk == 27:
+            break
+
+        # get current positions of four trackbars
+        l = cv2.getTrackbarPos('L', 'Canny threshold')
+        h = cv2.getTrackbarPos('H', 'Canny threshold')
+        b = cv2.getTrackbarPos(blur, 'Canny threshold')
+        t = cv2.getTrackbarPos('t', 'Canny threshold')
+        k = cv2.getTrackbarPos('k', 'Canny threshold')
+
+        if b == 1 :
+            else_img = cv2.blur(output, (k, k))
+            edge = cv2.Canny(else_img, l, h)
+        else:
+            else_img = kmeans(output, nb=t)
+            edge = cv2.Canny(else_img, l, h)
+
+    cv2.destroyAllWindows()
+
+
+################################################################################################################
+# TRAINING AND TEST UTILS
+################################################################################################################
+
+def get_img_transformed(train=False):
   """
   Apply mandatory transforms on the image
 
@@ -76,25 +217,13 @@ def get_img_transformed(train=False): #TODO modify min and max sizes
   # image scaling and normalization
   transforms.append(T.Normalize(mean=MEAN_Imagenet, std=STD_Imagenet))
   if train:
-      #transforms.append(T.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1,hue=0.1))
-      #transforms.append(T.RandomErasing()) # to randomly erase some pixels (artifical occlusion)
-      transforms.append(T.GaussianBlur(kernel_size=5, sigma=(0.01,2.0))) # because high resolution pictures
+      transforms.append(T.ColorJitter(brightness=0.1, contrast=0.1))
   return T.Compose(transforms)
 
 def collate_fn(batch):
   """Credits to https://github.com/pytorch/vision/blob/master/references/detection/utils.py"""
   return tuple(zip(*batch))
 
-
-def draw_corners(image, corners):
-  img = image.copy()
-  for [a,b,c,d,e,f,g,h] in corners:
-      img = cv2.circle(img, (a,b), radius=1, color=(255, 255, 255), thickness=2)
-      img = cv2.circle(img, (c,d), radius=1, color=(255, 255, 255), thickness=2)
-      img = cv2.circle(img, (e,f), radius=1, color=(255, 255, 255), thickness=2)
-      img = cv2.circle(img, (g,h), radius=1, color=(255, 255, 255), thickness=2)
-  #cv2_imshow(img)
-  cv2.imshow("Image rotated with corners",img)
 
 def bbox_area(bbox):
     """
@@ -105,98 +234,6 @@ def bbox_area(bbox):
     """
     area = (bbox[2] - bbox[0] + 1) * (bbox[3] - bbox[1] + 1)
     return area
-
-def intersect(bbox_1, bbox_2):
-  """
-  Args:
-    - bbox_1, bbox_2 : torch.Tensors of dim (4) (top left and bottom right corners of bounding box)
-  Returns:
-    - (bool) : if both boxes intersect
-  """
-
-  if bbox_1[1] > bbox_2[3]: # bbox 1 below bbox 2
-    return False
-  if bbox_1[3] < bbox_2[1]: # bbox 1 above bbox2
-    return False
-  if bbox_1[2] < bbox_2[0]: # bbox 1 left of bbox2
-    return False
-  if bbox_1[0] > bbox_2[2]: # bbox 1 right of bbox2
-    return False
-  return True
-
-
-def IoU(bbox_1, bbox_2):
-  
-  """
-  Args:
-    - bbox_1, bbox_2 : torch.Tensors of dim (4) (top left and bottom right corners of bounding box)
-  Returns:
-    - (float) Intersection over Union (IoU)
-  """
-
-  if intersect(bbox_1, bbox_2):
-
-    xm = max(bbox_1[0], bbox_2[0])
-    ym = max(bbox_1[1], bbox_2[1])
-    xM = min(bbox_1[2], bbox_2[2])
-    yM = min(bbox_1[3], bbox_2[3])
-    overlap_area = (xM - xm + 1) * (yM - ym + 1)
-    
-    tot_area = bbox_area(bbox_1) + bbox_area(bbox_2) - overlap_area
-    
-    return overlap_area / tot_area
-   
-  return 0
-
-def write(dataset, prediction=None, gt=True, initial_dir = '/content/drive/MyDrive/GBH/results' ):
-    """
-    Writes prediction or groundtruth bboxes to files
-    :param dataset: (torch.Dataset)
-    :param prediction: (dic) output of model
-    :param gt: (bool) if we want to write groundtruth to files
-    :param initial_dir : should contain the two following subfolders: groundtruths and detections
-   """
-    os.chdir(initial_dir)
-
-    if gt:
-        os.chdir('groundtruths')
-        # <class_name> <left> <top> <right> <bottom>
-        for (_, target), i in zip(dataset, range(len(dataset))):
-            name = dataset.imgs[i]
-            file_name = name + '.txt'
-            f = open(file_name,'w+') # open file in w mode
-            for label, bbox in zip(target['labels'], target['boxes']):
-                f.write("{} {} {} {} {}\r\n".format(label, bbox[0], bbox[1], bbox[2], bbox[3]))
-            f.close()
-
-    if prediction is not None :
-        os.chdir('detections')
-        # <class_name> <confidence> <left> <top> <right> <bottom>
-        for pred, (_, target), i in zip(prediction, dataset, range(len(dataset))):
-            name = dataset.imgs[i]
-            file_name = name + '.txt'
-            f = open(file_name, 'w+')
-            for label, score, bbox in zip(pred['labels'], pred['scores'], pred['boxes']):
-                f.write("{} {} {} {} {} {}\r\n".format(label, score, bbox[0], bbox[1], bbox[2], bbox[3]))
-            f.close()
-
-    os.chdir('/content')
-    
-    
-def eval_custom(dataset, model, device):
-  "Should NOT be used for mask RCNN -> because too heavy in memory"
-
-  predictions = []
-  model.eval()
-
-  with torch.no_grad():
-
-    for img, _ in dataset:
-      preds = model([img.to(device)])
-      for p in preds:
-        predictions.append(p)
-
-  return predictions
 
 
 def get_object_detection_model(num_classes, device, mtype = 'Resnet50_FPN', weights_path = '../models/best_Resnet50_FPN.pt'):

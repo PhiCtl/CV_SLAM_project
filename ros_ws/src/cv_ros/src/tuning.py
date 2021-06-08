@@ -25,7 +25,7 @@ It should already be tuned for current application
 import __init__
 import cv2
 import numpy as np
-from cv_lib.src.camera_listener import CameraListener
+from cv_lib.camera_listener import CameraListener
 import rospy
 
 
@@ -90,8 +90,8 @@ def create_hsv_trackbar(test_img, scale = 1):
 
     font = cv2.FONT_HERSHEY_DUPLEX
     while(1):
-
-        cv2.imshow('Mask_tuning',mask)
+        cv2.imshow('Vision', img)
+        cv2.imshow('Mask_tuning', mask)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
@@ -135,11 +135,9 @@ def tune():
         camera.get_info()
 
         # Create trackbar for tuning
-        create_hsv_trackbar(camera.bgr_image, scale=0.5)
+        create_hsv_trackbar(camera.bgr_image)
 
         rate.sleep()
 
 if __name__ == '__main__':
     tune()
-
-

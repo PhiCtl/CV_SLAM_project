@@ -3,19 +3,19 @@ import numpy as np
 
 class Tracker():
 
-    def __init__(self, thres=0.01):
+    def __init__(self, thres=0.1):
 
         # To store objects
-        self.objects = [np.array([]), # type
-                        np.array([], dtype=float).reshape(0,3), # coordinates
-                        np.array([], dtype=float).reshape(0,3), # planes
-                        np.array([]) # number of times we detected an object
-                        ] # list
+        self.objects = [np.array([]),  # type
+                        np.array([], dtype=float).reshape(0, 3),  # coordinates
+                        np.array([], dtype=float).reshape(0, 3),  # planes
+                        np.array([])  # number of times we detected an object
+                        ]  # list
 
         # To store number of detection
-        self.nb_detected = {} # dict
+        self.nb_detected = {}  # dict
 
-        self.thresh = thres # defines if two objects are the same or not -> define accuracy
+        self.thresh = thres  # defines if two objects are the same or not -> define accuracy
 
     def update_list(self, coordinate, plane, i):
         """
@@ -25,9 +25,11 @@ class Tracker():
         :param i: index of the detected object in the object list objects
         :return:
         """
-        self.objects[1][i,:] += coordinate
-        self.objects[2][i,:] += plane
-        self.objects[3][i] += 1 # udpate the number of times we detected a given object
+
+        # making sure each detection has the same weighting
+        self.objects[1][i, :] = (self.objects[3][i] * self.objects[1][i, :] + coordinate) / (self.objects[3][i] + 1)
+        self.objects[2][i, :] = (self.objects[3][i] * self.objects[1][i, :] + plane) / (self.objects[3][i] + 1)
+        self.objects[3][i] += 1  # udpate the number of times we detected a given object
 
     def add_object(self, coordinate, plane, type):
         """
@@ -48,7 +50,6 @@ class Tracker():
         self.objects[1] = np.vstack((self.objects[1], coordinate))
         self.objects[2] = np.vstack((self.objects[2], plane))
         self.objects[3] = np.hstack((self.objects[3], 1))
-
 
     def update(self, coordinates, planes, type):
 
@@ -73,21 +74,17 @@ class Tracker():
             else:
                 self.add_object(coo, plane, type)
 
-
-
     def get_object_list(self, type='any'):
 
-        self.average() # compute the average of the positions and orientations
-
         if type != 'any':
-            # TODO : refine error handling
+
             # If object type not detected yet
-            assert(type in self.objects[0]), \
+            assert (type in self.objects[0]), \
                 "No {} detected so far. \n Available objects are: {}".format(type, set(self.objects[0]))
 
             # Find objects of interest
             ix = np.argwhere(self.objects[0] == type).flatten()
-            return [self.objects[1][ix,:], self.objects[2][ix,:]], type
+            return [self.objects[1][ix, :], self.objects[2][ix, :]], type
 
         else:
             return [self.objects[1], self.objects[2]]
@@ -109,7 +106,12 @@ class Tracker():
         # Otherwise find closest (L2-norm) already detected object
         else:
             ix = np.argwhere(self.objects[0] == type).flatten()
-            L2_dist = np.sqrt((self.objects[1][ix,:] - coordinate)**2).sum(axis=1)
+            L2_dist = np.sqrt((self.objects[1][ix, :] - coordinate) ** 2).sum(axis=1)
+            # print('debug : \n indexes : {} \
+            # \n coordinate : {}, shape : {} \
+            # \n objects list {} \n \
+            # L2_dist : {}'.format(ix, coordinate, coordinate.shape, self.objects[1], L2_dist))
+
             min, i = np.min(L2_dist), np.argmin(L2_dist)
 
             # If minimum above threshold -> new object has been detected
@@ -118,22 +120,6 @@ class Tracker():
             # Otherwise, has already been detected
             else:
                 return ix[i], True
-
-    def average(self):
-
-        # Does the average type per type
-        for type in set(self.objects[0]):
-
-            ix = np.argwhere(self.objects[0] == type).flatten()
-            self.objects[1][ix, :] /= np.expand_dims(self.objects[3][ix], axis=1)
-            self.objects[2][ix, :] /= np.expand_dims(self.objects[3][ix], axis=1)
-
-        # Reset object detections
-        self.objects[3][:] = 1
-
-
-
-
 
     def reset(self):
         """

@@ -2,10 +2,15 @@ from myUtils import*
 import time
 from skspatial.objects import Points, Plane
 
+"""
+Object detection with neural networks
+"""
 
 # Constants for strawberry flower detection by HSV thresholding
 LOW = np.array([24,0,245], dtype=np.float32)
 UPP = np.array([92,21,255], dtype=np.float32)
+
+
 
 class ObjectPredictor():
     def __init__(self, model_name = 'MobileNetV3_largeFPN', weights_path = '/home/phil/Documents/Projects/CV_SLAM_project/cv_lib/models/'):
@@ -52,7 +57,7 @@ class ObjectPredictor():
         if self.model_name != 'YOLOv5x':
             img = self.transform(image).unsqueeze(0).to(torch.device('cpu')) # convert to tensor of size [1, 3, H, w]
         else:
-            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # TODO cv2.resize(image, (640,640))
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # Make prediction
         self.model.eval()
@@ -126,6 +131,44 @@ def crop(img, bbox):
 
     return img[ym:yM, xm:xM,:]
 
+def find_centroid(mask, threshold=100, verbose=True):
+    """
+    By method of moments
+    :param mask:
+    :param threshold:
+    :param verbose:
+    :return:
+    """
+
+    if verbose: print("Finding centroids...")
+    output = mask.copy().astype(np.uint8)
+
+    # Pick the main objects and find its moments
+    # find moments based on contours
+    contours, hierarchy = cv2.findContours(output, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = sorted(contours, key = lambda x: cv2.contourArea(x))
+    M = cv2.moments(cnts[-1])
+    cx = int(M['m10'] / M['m00'])
+    cy = int(M['m01'] / M['m00'])
+
+    if verbose:
+        # Print centroid and show object mask
+        cv2.circle(output, (int(cx), int(cy)), 2, 255, 1)
+        cv2.imshow('object mask', output)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    # Draw contours
+    if verbose:
+        # Draw contours
+        cv2.drawContours(output, [cnts[-1]], -1, (255, 0, 0), 2)  # image, contours, contourIdx, color, thickness
+        cv2.imshow('centroid', output)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        print("Done")
+
+    return cx, cy
+
 def get_pose_and_orientation(mask, camera, verbose=False):
     """
     Computes object pose and orientation
@@ -151,17 +194,19 @@ def get_pose_and_orientation(mask, camera, verbose=False):
 
         # We compute the position
         # We compute the flower (x,y,z) location in pixels coordinates
-        cx, cy = int((obj_pix[:, 1].min() + obj_pix[:, 1].max()) / 2), int((obj_pix[:, 0].min() + obj_pix[:, 0].max()) / 2)
-        cz = points[:,2].mean()
-        print("Pixels: {} {} {}".format(cx, cy, cz))
+        cx, cy = find_centroid(mask, verbose=verbose)
+        cz = camera.get_distance(cx, cy)
+
+        if verbose:
+            print("Pixels: {} {} {}".format(cx, cy, cz))
         # We convert to camera coordinates
-        [x, y, z] = camera.image_2_camera([cx, cy], cz)  # in mm here
+        [x, y, z] = camera.image_2_camera((cx, cy), cz)  # in mm here
 
         return x, y, z, np.array(plane.vector)
 
     else :
         # If the mask is empty, then we cannot compute the orientation and the position
-        raise ValueError
+        raise ValueError('Mask is empty, cannot compute flower pose.')
 
 
 def pred_to_pose(p, img, camera, mode='img', radius = 3, conf = 0.25, verbose=False):
@@ -208,7 +253,10 @@ def pred_to_pose(p, img, camera, mode='img', radius = 3, conf = 0.25, verbose=Fa
                 # Find object position in camera coordinates (in mm) and orientation
                 x, y, z, orientation = get_pose_and_orientation(mask, camera, verbose=verbose)
                 orientations.append(orientation)
-                if verbose: print("Coordinates: {} {} {}".format(x,y,z))
+                if verbose:
+                    print("Coordinates: {} mm, {} mm, {} mm".format(x,y,z))
+                    print("Plane: {}".format(orientation))
+
                 # in m instead of mm
                 centroids.append([x/1000, y/1000, z/1000, score])
 
@@ -228,7 +276,7 @@ def pred_to_pose(p, img, camera, mode='img', radius = 3, conf = 0.25, verbose=Fa
                 depth = depth_frame[ my:My, mx:Mx]
                 cz = depth.mean()
                 # Could not compute the orientation
-                orientations.append([0, 0, 0]) # TODO find another way
+                orientations.append([0, 0, 0])
 
                 # We convert from pixels to camera coordinates
                 [x, y, z] = camera.image_2_camera([cx, cy], cz)

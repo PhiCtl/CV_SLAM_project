@@ -1,38 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Mar 11 16:50:29 2021
-
-@author: Philippine
+Run test to check if tracker shows correct behavior
 """
-import os, cv2, torch
+import os
 import numpy as np
-from rs_camera import Camera
-#from cv_lib.src.object_detection import ObjectDetector
 from tracker import Tracker
-from object_prediction import ObjectPredictor
 
 currentPath = os.path.dirname(os.path.realpath(__file__))
-
-def run():
-
-    path_img = '/home/phil/Documents/Projects/Data_stats/flower/img/'
-    path_depth = '/home/phil/Documents/Projects/Data_stats/flower/depth/'
-    list_imgs = list(sorted(os.listdir(path_img)))
-    list_depths = list(sorted(os.listdir(path_depth)))
-
-    # Start camera and get frames
-    intrinsics = {'width': 640, 'height':480, 'p': [318.822, 242.864], 'f':[596.53, 596.53], 'D':[0, 0, 0, 0, 0]}
-    camera = Camera(intrinsics)
-    predictor = ObjectPredictor(model_name='YOLOv5x')
-
-    for img, depth in zip(list_imgs, list_depths):
-        p1, p2 = path_img + img, path_depth + depth
-        color_img = cv2.imread(p1)
-        depth_img = cv2.imread(p2)
-
-        camera.set_frames(color_img, depth_img)
-        poses, found_flowers = predictor(camera.bgr_image, camera, conf=0.25, verbose=True, name = img)
-        if found_flowers: print("{}: coordinates : {}".format(img, poses))
 
 
 def track_test():

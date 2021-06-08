@@ -6,9 +6,13 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pyrealsense2 as rs
 
+"""
+Object detection by HSV thresholding
+"""
+
 class ObjectDetector():
 
-    def __init__(self): #TODO: Members to refine
+    def __init__(self):
         """Args: input image (BGR) from which we perform object detection"""
         
         self.mask = None #mask from which we count objects and compute their positions
@@ -17,9 +21,9 @@ class ObjectDetector():
         self.kmeans = None
         self.detected_obj = [] #list of (centroids) pixels positions of objects
         self.planes = [] #list of corresponding 3D planes
-        self.coo = [] #objects (world) camera coordinates #TODO: is coo synchronized with planes ?
+        self.coo = [] #objects (world) camera coordinates
         
-    def reset(self): #TODO: implement & send info to ROS node
+    def reset(self):
         self.mask, self.frame, self.kmeans = None, None, None
         self.masks, self.detected_obj, self.planes, self.coo = [], [], [], []
 
@@ -39,7 +43,7 @@ class ObjectDetector():
         #new_width  = int(output.shape[1]*scale)
         #output = cv2.resize(output, (new_width, new_height),interpolation = cv2.INTER_AREA)
         
-        # Kmeans #TODO understand better kmeans
+        # Kmeans
         clust = output.reshape((-1,3))
         clust = np.float32(clust) #should be flattened and of type float32
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10,1.0) #max iter and accuracy epsilon
@@ -86,7 +90,7 @@ class ObjectDetector():
         low_orange = np.array([16.8/2-sens,0.5*255,0.5*255], dtype = np.float32) 
         upp_orange = np.array([16.8/2 +sens,255,255], dtype = np.float32)
             
-        # Opening to get rid of the small background artifacts -> #TODO : tune size of opening element
+        # Opening to get rid of the small background artifacts
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,5))
         
         # From bgr to hsv colorspace
@@ -207,8 +211,7 @@ class ObjectDetector():
             # Plot
             if plot:
                 print("Plane vector : {}".format(np.array(plane.vector)))
-                # Plot plane 
-                #TODO: (x,z) plane...
+                # Plot plane
                 [X,Y,Z] = self.coo[len(self.planes)-1]
                 [U,V,W] = np.array(plane.vector) #self.planes[-1]
                 #[x,y,z] = [points[:,0],points[:,1],points[:,2]] 

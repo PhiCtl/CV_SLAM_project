@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
 
-
+"""
+Transforms for custom data augmentation
+"""
 # from https://blog.paperspace.com/data-augmentation-for-object-detection-rotation-and-shearing/
 def get_corners(bboxes):
     """Get corners of bounding boxes

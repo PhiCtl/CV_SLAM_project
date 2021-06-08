@@ -1,60 +1,57 @@
 # !/usr/bin/env python
 
-import __init__
-from cv_lib.object_detection import Object_Detection
-from cv_lib.camera_listener import CameraListener
-from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import String
-import rospy
+"""
+Test if matrix multiplication is equivalent to rs2.rs2_deproject_pixel_to_point
+i.e. if distortion is negligible.
 
+"""
+
+import __init__
+from cv_lib.src.camera_listener import CameraListener
+import numpy as np
 
 # topics list
 topic_rs_status = '/RS_status'
 topic_cv_status = '/CV_status'
-topic_cv_datas = '/CV_datas'
+topic_cv_data = '/CV_data'
+topic_cv_obj = '/CV_object'
 
-def init_node():
-    global msg, pub, rate
-    rospy.init_node("Vision")
-    pub = rospy.Publisher('/Vision', PoseStamped, queue_size=10)
-    rate = rospy.Rate(10)
-    msg = PoseStamped()
-
-def publish(centroid_coo, plane_vector_coo):
-    msg.header.frame_id, msg.header.stamp = "camera", rospy.Time.now()
-    # [msg.pose.position.x, msg.pose.position.y, msg.pose.position.z] = centroid_coo
-    msg.pose.position.x = centroid_coo[0]/1000
-    msg.pose.position.y = centroid_coo[1]/1000
-    msg.pose.position.z = centroid_coo[2]/1000
-
-    [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z] = plane_vector_coo
-    # rospy.loginfo(msg)
-    pub.publish(msg)
-    # rate.sleep()
-
-def run():
-    init_node()
-
-    # start camera listener and detector
+def test():
     camera = CameraListener()
-    detector = Object_Detection()
 
-    while not rospy.is_shutdown():
-        camera.get_frames()
-        camera.get_info()
+    # Get frames and camera intrinsics
+    camera.get_frames()
+    camera.get_info()
+    # Get intrinsics as a matrix
+    K = camera.get_matrix()
+    K_inv = np.linalg.inv(K)
 
-        # detect object
-        detector.set_picture(camera.bgr_image)
-        detector.get_mask(it = 2) # OK
-        detector.find_centroids(threshold=1000)
-        detector.get_pos(camera)
-        detector.get_plane_orientation(camera, plot = False)
+    # Pixel arbitrary coordinates
+    rd_pixel = np.array([[200, 200],
+                        [100,150],
+                        [150,50],
+                         [300,300]]) # (4,2)
 
-        for centroid_coo, plane_vector_coo in zip(detector.coo, detector.planes):
-            publish(centroid_coo, plane_vector_coo)
-        detector.reset()
-        rate.sleep()
+    # Pixel coordinates need to be reverted to array indexing -> (u,v) = (y,x)
+    # should be (4,)
+    rd_pixel_depth = np.array([camera.depth_frame[j,i] for i, j in rd_pixel]) # so j,i <- i,j
+    rd_pixel_augmented = np.append(rd_pixel, np.ones((len(rd_pixel),1)), axis = 1) # (4,3)
+    # With distortion
+    real_points = []
+    # without distortion point wise
+    approx1 = []
+    for pixel, pixel_au, depth in zip(rd_pixel, rd_pixel_augmented, rd_pixel_depth):
+        real_points.append(camera.image_2_camera(pixel, depth))
+        approx1.append(depth * K_inv @ pixel_au)
+
+    # Without distortion
+    approximated_points = camera.image_2_camera(rd_pixel, rd_pixel_depth)
+    # print('Real points: ', real_points)
+
+    # Should be equal
+    print('Approximated points: ', approximated_points)
+    print('Approximated points point wise: ', approx1)
 
 
 if __name__ == '__main__':
-    run()
+    test()

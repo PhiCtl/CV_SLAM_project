@@ -88,6 +88,11 @@ Each step of object detection can be displayed (set verbose to True), and parame
 
 ### Launch node
 To launch our package, one needs to run the following commands in several terminals, starting from ```Object-pose-estimation``` as home directory.
+Only once to compile :
+```
+$ cd ros_ws
+$ catkin_make
+```
 All terminals :
 ```
 $ cd ros_ws
